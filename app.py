@@ -8,15 +8,21 @@
 # -------------------------------------------------------------
 
 import re
+import unicodedata
+from typing import List, Tuple, Dict
+
 import pandas as pd
 import streamlit as st
-from typing import List
 
 st.set_page_config(page_title="Step 1 – Seleção de Ativos", layout="wide")
 st.title("📌 Step 1 — Seleção de Ativos (.SA)")
-st.caption("Selecione empresas por **setor** (ClassifSetorial.xlsx) ou diretamente por **ticker**. O sufixo .SA é adicionado automaticamente.")
+st.caption(
+    "Selecione empresas por **setor** (a partir do arquivo `ClassifSetorial.xlsx`) ou diretamente por **ticker**. "
+    "Se a planilha não tiver a coluna Ticker, o app monta automaticamente a partir de **CÓDIGO + série padrão + `.SA`**."
+)
 
-TICKER_PATTERN = re.compile(r"^[A-Z]{3,5}\d{1,2}(?:\.SA)?$")
+# --------- Utilitários ---------
+TICKER_PATTERN = re.compile(r"^[A-Z]{3,6}\d{0,2}(?:\.SA)?$")
 
 def normalize_ticker(t: str) -> str:
     t = (t or "").strip().upper()
@@ -24,8 +30,10 @@ def normalize_ticker(t: str) -> str:
         return ""
     if t.endswith(".SA"):
         return t
-    if re.match(r"^[A-Z]{3,5}\d{1,2}$", t):
+    # Se vier já com letras+numero, acrescenta .SA
+    if re.match(r"^[A-Z]{3,6}\d{1,2}$", t):
         return f"{t}.SA"
+    # Se vier só letras (ex.: PETR), deixa para montagem com série
     return t
 
 def dedup_order(seq: List[str]) -> List[str]:
@@ -35,9 +43,17 @@ def dedup_order(seq: List[str]) -> List[str]:
             seen.add(x); out.append(x)
     return out
 
+def strip_accents_lower(s: str) -> str:
+    s = "".join(c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c))
+    return s.lower().strip()
+
 @st.cache_data(show_spinner=False)
-def load_classificacao(path: str = "ClassifSetorial.xlsx") -> pd.DataFrame:
-    # tenta ler Excel; se não existir ou faltar lib, retorna df vazio e mensagem
+def load_classificacao(path: str = "ClassifSetorial.xlsx") -> Tuple[pd.DataFrame, str | None]:
+    """
+    Lê o Excel e padroniza colunas.
+    Aceita headers como: SETOR, SUBSETOR, SEGMENTO, NOME DE PREGÃO, CÓDIGO, TICKER (opcional).
+    Retorna (df_padronizado, msg_erro).
+    """
     try:
         df = pd.read_excel(path, engine="openpyxl")
     except FileNotFoundError:
@@ -45,98 +61,153 @@ def load_classificacao(path: str = "ClassifSetorial.xlsx") -> pd.DataFrame:
     except Exception as e:
         return pd.DataFrame(), f"Falha ao abrir o Excel: {e}"
 
-    # normaliza nomes
-    df.columns = [c.strip().lower() for c in df.columns]
+    original_cols = list(df.columns)
 
-    # mapeia colunas
-    alias_map = {
-        "ticker":   ["ticker", "papel", "ativo"],
-        "empresa":  ["empresa", "nome", "companhia"],
-        "setor":    ["setor", "sector"],
-        "subsetor": ["subsetor", "sub-setor", "subsector"],
-        "segmento": ["segmento", "segment"]
+    # Normaliza nomes para matching flexível
+    norm_map: Dict[str, str] = {}
+    for c in original_cols:
+        k = strip_accents_lower(c)
+        k = k.replace(" ", "").replace("_", "").replace("-", "")
+        norm_map[k] = c
+
+    # Possíveis aliases (case-insensitive e sem acentos)
+    want = {
+        "Setor":    ["setor", "setoreconomico", "setorfinanceiro"],
+        "Subsetor": ["subsetor", "subsector", "sub-setor"],
+        "Segmento": ["segmento", "segmentoeconomico", "segment"],
+        "Empresa":  ["nomedepregao", "empresa", "companhia", "nomepregao"],
+        "Codigo":   ["codigo", "codigodenegociacao", "codneg", "tickerb3", "papel", "ativo"],
+        "Ticker":   ["ticker"]  # se já existir na planilha, usamos preferencialmente
     }
+
+    # Monta renomeação
     rename = {}
-    for alvo, aliases in alias_map.items():
-        for a in aliases:
-            if a in df.columns:
-                rename[a] = alvo
+    for target, candidates in want.items():
+        for key in candidates:
+            if key in norm_map:
+                rename[norm_map[key]] = target
                 break
+
     df = df.rename(columns=rename)
 
-    if "ticker" not in df.columns or "setor" not in df.columns:
-        return pd.DataFrame(), "O Excel precisa ter colunas equivalentes a 'Ticker' e 'Setor'."
+    # Checks mínimos
+    if "Setor" not in df.columns:
+        return pd.DataFrame(), "Planilha sem coluna equivalente a **SETOR**."
+    if "Ticker" not in df.columns and "Codigo" not in df.columns:
+        return pd.DataFrame(), "Planilha precisa ter **Ticker** ou **CÓDIGO**."
 
-    df["ticker"] = df["ticker"].astype(str).str.upper().str.strip().apply(normalize_ticker)
-    df = df.dropna(subset=["ticker", "setor"]).reset_index(drop=True)
+    # Normaliza colunas que existirem
+    keep_cols = ["Setor", "Subsetor", "Segmento", "Empresa", "Ticker", "Codigo"]
+    for c in keep_cols:
+        if c not in df.columns:
+            df[c] = pd.NA
+
+    # Limpeza básica
+    for c in ["Setor", "Subsetor", "Segmento", "Empresa", "Codigo", "Ticker"]:
+        if c in df.columns:
+            df[c] = df[c].astype(str).str.strip()
+
+    # Linhas válidas de setor
+    df = df[df["Setor"].notna() & (df["Setor"] != "")].copy().reset_index(drop=True)
     return df, None
 
-# Carrega classificação (se existir)
-df_class, class_msg = load_classificacao()
-tem_classificacao = isinstance(df_class, pd.DataFrame) and not df_class.empty and class_msg is None
+# --------- Carrega classificação ---------
+df_class, msg = load_classificacao()
+if msg:
+    st.warning(msg)
 
+# Se não houver planilha ou faltar colunas mínimas, ofereça apenas seleção por ticker de fallback
+tem_base = not df_class.empty and ("Setor" in df_class.columns)
+
+# Série padrão (usada apenas quando não existe coluna Ticker na planilha)
+serie_default = st.sidebar.selectbox("Série padrão (quando faltar Ticker na planilha)", ["3", "4", "11"], index=0)
+
+# Monta coluna TickerFinal (preferência: Ticker; senão, Codigo + série)
+def build_ticker_final(row) -> str:
+    if pd.notna(row.get("Ticker")) and str(row.get("Ticker")).strip():
+        return normalize_ticker(str(row["Ticker"]))
+    cod = str(row.get("Codigo") or "").strip().upper()
+    if not cod:
+        return ""
+    base = cod if cod.endswith(".SA") else f"{cod}{serie_default}.SA"
+    return normalize_ticker(base)
+
+if tem_base:
+    df_class["TickerFinal"] = df_class.apply(build_ticker_final, axis=1)
+    # remove vazios
+    df_class = df_class[df_class["TickerFinal"].astype(bool)].reset_index(drop=True)
+
+# --------- Modo de seleção ---------
 modo = st.radio("Como deseja selecionar?", ["Por setor", "Por ticker"], horizontal=True)
 
 validos, invalidos = [], []
 
 if modo == "Por setor":
     st.subheader("Selecionar por Setor")
-    if not tem_classificacao:
-        st.warning(class_msg or "Classificação não disponível. Use a seleção por ticker.")
+
+    if not tem_base:
+        st.warning("Classificação não disponível. Use a seleção por ticker.")
     else:
-        setores = sorted(df_class["setor"].dropna().unique().tolist())
-        cols = st.columns([1.2, 1.2, 1])
-        with cols[0]:
-            setores_sel = st.multiselect("Setores", options=setores)
+        # Contagem por setor
+        set_counts = (
+            df_class.groupby("Setor")["TickerFinal"]
+            .nunique()
+            .sort_index()
+            .to_dict()
+        )
+        setores_opcoes = [f"{s} ({set_counts.get(s,0)})" for s in sorted(set_counts.keys())]
+        map_display_to_setor = {disp: disp.rsplit(" (", 1)[0] for disp in setores_opcoes}
 
-        df_filtrado = df_class.copy()
+        colA, colB, colC = st.columns([1.4, 1.2, 1])
+        with colA:
+            sel_disp = st.multiselect("Setores", options=setores_opcoes)
+            setores_sel = [map_display_to_setor[x] for x in sel_disp]
+
+        df_f = df_class.copy()
         if setores_sel:
-            df_filtrado = df_filtrado[df_filtrado["setor"].isin(setores_sel)]
+            df_f = df_f[df_f["Setor"].isin(setores_sel)]
 
-        # Subfiltros opcionais
-        subsets = sorted(df_filtrado["subsetor"].dropna().unique().tolist()) if "subsetor" in df_filtrado.columns else []
-        segs    = sorted(df_filtrado["segmento"].dropna().unique().tolist()) if "segmento" in df_filtrado.columns else []
+        # Subfiltros
+        subsetores = sorted(df_f["Subsetor"].dropna().unique().tolist()) if "Subsetor" in df_f.columns else []
+        segmentos  = sorted(df_f["Segmento"].dropna().unique().tolist()) if "Segmento" in df_f.columns else []
 
-        with cols[1]:
-            if subsets:
-                subset_sel = st.multiselect("Subsetores (opcional)", options=subsets)
-                if subset_sel:
-                    df_filtrado = df_filtrado[df_filtrado["subsetor"].isin(subset_sel)]
-            if segs:
-                seg_sel = st.multiselect("Segmentos (opcional)", options=segs)
+        with colB:
+            if subsetores:
+                sub_sel = st.multiselect("Subsetores (opcional)", options=subsetores)
+                if sub_sel:
+                    df_f = df_f[df_f["Subsetor"].isin(sub_sel)]
+            if segmentos:
+                seg_sel = st.multiselect("Segmentos (opcional)", options=segmentos)
                 if seg_sel:
-                    df_filtrado = df_filtrado[df_filtrado["segmento"].isin(seg_sel)]
+                    df_f = df_f[df_f["Segmento"].isin(seg_sel)]
 
-        with cols[2]:
-            st.metric("Empresas filtradas", len(df_filtrado))
+        with colC:
+            st.metric("Empresas filtradas", int(df_f["TickerFinal"].nunique()))
 
-        # Escolha final
-        if "empresa" in df_filtrado.columns:
-            op = df_filtrado[["ticker", "empresa"]].drop_duplicates()
-            op["label"] = op["ticker"] + " — " + op["empresa"].astype(str)
+        # Opções finais (Ticker — Empresa)
+        if "Empresa" in df_f.columns and df_f["Empresa"].notna().any():
+            op = df_f[["TickerFinal", "Empresa"]].drop_duplicates()
+            op["label"] = op["TickerFinal"] + " — " + op["Empresa"].astype(str)
             labels = op["label"].tolist()
-            map_label = dict(zip(op["label"], op["ticker"]))
-            escolha = st.multiselect("Escolha as empresas:", options=labels)
-            validos = [map_label[l] for l in escolha]
+            label_to_ticker = dict(zip(op["label"], op["TickerFinal"]))
+            escolhidas = st.multiselect("Escolha as empresas:", options=labels)
+            validos = [label_to_ticker[l] for l in escolhidas]
         else:
-            op = sorted(df_filtrado["ticker"].drop_duplicates().tolist())
+            op = sorted(df_f["TickerFinal"].drop_duplicates().tolist())
             validos = st.multiselect("Escolha as empresas:", options=op)
 
-else:
+else:  # Por ticker
     st.subheader("Selecionar por Ticker")
-    sugestoes = [
-        "PETR4.SA", "VALE3.SA", "ITUB4.SA", "BBDC4.SA", "BBAS3.SA",
-        "ABEV3.SA", "BOVA11.SA", "WEGE3.SA", "RENT3.SA", "SUZB3.SA",
-        "PRIO3.SA", "GGBR4.SA", "LREN3.SA", "RAIL3.SA", "HAPV3.SA",
-    ]
-    options = sorted(df_class["ticker"].unique().tolist()) if tem_classificacao else sugestoes
-    selecionados = st.multiselect("Digite ou escolha tickers:", options=options, default=["PETR4.SA","VALE3.SA","ITUB4.SA"])
+    if tem_base:
+        options = sorted(df_class["TickerFinal"].drop_duplicates().tolist())
+    else:
+        # fallback mínimo
+        options = ["PETR4.SA", "VALE3.SA", "ITUB4.SA", "BBDC4.SA", "BBAS3.SA", "ABEV3.SA", "WEGE3.SA", "PRIO3.SA"]
+    selecionados = st.multiselect("Digite ou escolha tickers:", options=options, default=options[:3])
     validos = [normalize_ticker(t) for t in selecionados if t]
 
-# Validação
-for t in validos:
-    if not TICKER_PATTERN.match(t):
-        invalidos.append(t)
+# --------- Validação ---------
+invalidos = [t for t in validos if not TICKER_PATTERN.match(t)]
 
 st.markdown("---")
 st.subheader("✅ Pré-visualização da seleção")
@@ -153,7 +224,7 @@ with c2:
 
 st.markdown("---")
 if st.button("✅ Confirmar seleção e salvar no estado", type="primary"):
-    final = dedup_order([normalize_ticker(t) for t in validos])
+    final = dedup_order([normalize_ticker(t) for t in validos if t])
     if not final:
         st.error("Seleção vazia. Adicione ao menos 1 ticker.")
     else:
