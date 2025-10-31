@@ -11,6 +11,74 @@ from __future__ import annotations
 import streamlit as st
 from urllib.parse import urlencode
 
+# ============================================================
+# ETAPA 2 — Coleta e preparação de dados (yfinance)
+# ============================================================
+import numpy as np
+import yfinance as yf
+import plotly.graph_objects as go
+import plotly.express as px
+
+TRADING_DAYS = {"1M": 21, "3M": 63, "6M": 126, "12M": 252}
+
+def _safe_pct(x):
+    try:
+        return float(x)
+    except Exception:
+        return np.nan
+
+def _as_pct(x):
+    return float(x) * 100 if x is not None else np.nan
+
+def _momentum_from_series(px: pd.Series, days: int) -> float:
+    if px is None or px.empty or len(px) <= days:
+        return np.nan
+    try:
+        return float(px.iloc[-1] / px.iloc[-(days+1)] - 1.0)
+    except Exception:
+        return np.nan
+
+@st.cache_data(show_spinner=True)
+def fetch_yf_info_and_prices(ticker: str, period_prices: str = "2y"):
+    """Baixa info do yfinance e preços históricos do ativo e do IBOV (^BVSP)."""
+    t = yf.Ticker(ticker)
+    info = t.info  # dicionário; pode faltar campos
+    hist = t.history(period=period_prices, interval="1d")
+    px = hist["Close"].dropna() if "Close" in hist else pd.Series(dtype=float)
+
+    # Benchmark (Ibovespa) para referência
+    try:
+        ibov = yf.Ticker("^BVSP").history(period=period_prices, interval="1d")
+        ibov_px = ibov["Close"].dropna() if "Close" in ibov else pd.Series(dtype=float)
+    except Exception:
+        ibov_px = pd.Series(dtype=float)
+
+    return info, px, ibov_px
+
+def _build_overview_from_info(info: dict) -> pd.DataFrame:
+    """Monta um DataFrame enxuto com os principais indicadores do yfinance.info."""
+    rows = [{
+        "Empresa": info.get("longName"),
+        "Setor": info.get("sector"),
+        "P/L": _safe_pct(info.get("trailingPE")),
+        "P/VP": _safe_pct(info.get("priceToBook")),
+        "EV/EBITDA": _safe_pct(info.get("enterpriseToEbitda")),
+        "P/Sales": _safe_pct(info.get("priceToSalesTrailing12Months")),
+        "Dividend Yield (%)": _as_pct(info.get("dividendYield")),
+        "ROE (%)": _as_pct(info.get("returnOnEquity")),
+        "ROA (%)": _as_pct(info.get("returnOnAssets")),
+        "Margem Líquida (%)": _as_pct(info.get("profitMargins")),
+        "Margem Operacional (%)": _as_pct(info.get("operatingMargins")),
+        "Margem EBITDA (%)": _as_pct(info.get("ebitdaMargins")),
+        "Debt/Equity": _safe_pct(info.get("debtToEquity")),
+        "Current Ratio": _safe_pct(info.get("currentRatio")),
+        "Quick Ratio": _safe_pct(info.get("quickRatio")),
+        "Market Cap (R$ bi)": (_safe_pct(info.get("marketCap")) / 1e9) if info.get("marketCap") else np.nan,
+    }]
+    df = pd.DataFrame(rows)
+    return df
+
+
 # ------------------------------
 # Configuração básica da página
 # ------------------------------
@@ -326,6 +394,98 @@ def etapa1_selecao_empresa():
     else:
         st.caption("**Estado atual**: nenhuma empresa confirmada.")
 
+def etapa2_coleta_dados():
+    st.markdown("### Etapa 2 — Coleta e visão geral")
+    ticker = st.session_state.get("empresa_escolhida")
+    if not ticker:
+        st.info("Selecione uma empresa na Etapa 1 para continuar.")
+        return
+
+    # Parâmetros
+    cols = st.columns([1,1,1.2])
+    with cols[0]:
+        period_prices = st.selectbox("Período de preços", ["1y","2y","5y"], index=1)
+    with cols[1]:
+        show_benchmark = st.toggle("Comparar com Ibovespa", value=True, help="Usa ^BVSP como benchmark.")
+    with cols[2]:
+        st.caption("Indicadores podem vir incompletos do Yahoo. Campos ausentes aparecem como NaN.")
+
+    # Coleta
+    with st.spinner(f"Baixando dados de {ticker}…"):
+        info, px, ibov_px = fetch_yf_info_and_prices(ticker, period_prices=period_prices)
+
+    if (px is None) or px.empty:
+        st.error("Não foi possível obter preços do ativo selecionado.")
+        return
+
+    # Overview (múltiplos, margens etc.)
+    df_info = _build_overview_from_info(info)
+    nome = df_info.at[0, "Empresa"] if not df_info.empty else ticker
+    setor = df_info.at[0, "Setor"] if not df_info.empty else None
+
+    # Header com destaques
+    h1, h2, h3, h4 = st.columns(4)
+    with h1: st.metric("Empresa", nome if nome else ticker)
+    with h2: st.metric("Setor", setor or "—")
+    with h3: st.metric("P/L", f'{df_info.at[0,"P/L"]:.2f}' if not np.isnan(df_info.at[0,"P/L"]) else "—")
+    with h4: st.metric("ROE (%)", f'{df_info.at[0,"ROE (%)"]:.1f}' if not np.isnan(df_info.at[0,"ROE (%)"]) else "—")
+
+    # Momentum
+    ret_1m = _momentum_from_series(px, TRADING_DAYS["1M"])
+    ret_3m = _momentum_from_series(px, TRADING_DAYS["3M"])
+    ret_6m = _momentum_from_series(px, TRADING_DAYS["6M"])
+    ret_12m = _momentum_from_series(px, TRADING_DAYS["12M"])
+
+    m1, m2, m3, m4 = st.columns(4)
+    with m1: st.metric("Retorno 1M",  f"{ret_1m*100:,.1f}%" if not np.isnan(ret_1m) else "—")
+    with m2: st.metric("Retorno 3M",  f"{ret_3m*100:,.1f}%" if not np.isnan(ret_3m) else "—")
+    with m3: st.metric("Retorno 6M",  f"{ret_6m*100:,.1f}%" if not np.isnan(ret_6m) else "—")
+    with m4: st.metric("Retorno 12M", f"{ret_12m*100:,.1f}%" if not np.isnan(ret_12m) else "—")
+
+    st.markdown("---")
+
+    # Gráfico de preço (com benchmark opcional, normalizado = 100)
+    def _normalize_100(s: pd.Series) -> pd.Series:
+        if s.empty:
+            return s
+        base = s.iloc[0]
+        return s / base * 100.0
+
+    base_df = pd.DataFrame({"Data": px.index, ticker: _normalize_100(px).values})
+    if show_benchmark and ibov_px is not None and not ibov_px.empty:
+        # Alinha datas
+        _tmp = pd.DataFrame({"Data": ibov_px.index, "IBOV": _normalize_100(ibov_px).values})
+        base_df = base_df.merge(_tmp, on="Data", how="left")
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=base_df["Data"], y=base_df[ticker], mode="lines", name=ticker))
+    if "IBOV" in base_df.columns:
+        fig.add_trace(go.Scatter(x=base_df["Data"], y=base_df["IBOV"], mode="lines", name="IBOV (100=base)"))
+    fig.update_layout(
+        title=f"Evolução normalizada (100 = início) — {ticker}",
+        xaxis_title="Data", yaxis_title="Índice (base 100)", height=420, legend_title="Séries"
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Tabela de fundamentos (compacta)
+    st.markdown("#### Indicadores do Yahoo Finance (info)")
+    st.dataframe(
+        df_info.T.rename(columns={0: "Valor"}),
+        use_container_width=True,
+        height=420
+    )
+
+    # Download CSV
+    csv_bytes = df_info.to_csv(index=False).encode("utf-8")
+    st.download_button("⬇️ Baixar CSV (overview da empresa)", data=csv_bytes,
+                       file_name=f"{ticker}_overview.csv", mime="text/csv")
+
+def render_single_layout():
+    st.subheader("🔎 Análise Individual")
+    etapa1_selecao_empresa()      # Seleção (Etapa 1)
+    if "empresa_escolhida" in st.session_state:
+        st.markdown("---")
+        etapa2_coleta_dados()     # Coleta e visão geral (Etapa 2)
 
 def render_screener_layout():
     st.subheader("📈 Screener / Ranking — layout")
