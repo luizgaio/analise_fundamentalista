@@ -1,8 +1,10 @@
 # -------------------------------------------------------------
-# Step 1 — Seleção de Ativos (.SA) para o Dashboard de Valuation
+# Step 1 — Seleção de Ativos (.SA) por Setor ou por Ticker
 # Autor: Luiz E. Gaio + ChatGPT
 # Descrição: Componente inicial do app Streamlit para escolher
-#            tickers da B3, validar, normalizar e salvar no estado.
+#            tickers da B3 a partir de uma classificação setorial
+#            (arquivo ClassifSetorial.xlsx no repositório) OU
+#            diretamente por multiselect de tickers.
 # -------------------------------------------------------------
 
 import re
@@ -12,7 +14,7 @@ from typing import List
 
 st.set_page_config(page_title="Step 1 – Seleção de Ativos", layout="wide")
 st.title("📌 Step 1 — Seleção de Ativos (.SA)")
-st.caption("Informe os tickers da B3. Aceita: PETR4, VALE3, ITUB4, BOVA11, já com ou sem o sufixo .SA.")
+st.caption("Selecione as empresas por **setor** (a partir do arquivo `ClassifSetorial.xlsx`) ou diretamente por **ticker**. O sufixo .SA é adicionado automaticamente.")
 
 # -----------------------------
 # 🔧 Utilitários
@@ -20,25 +22,14 @@ st.caption("Informe os tickers da B3. Aceita: PETR4, VALE3, ITUB4, BOVA11, já c
 TICKER_PATTERN = re.compile(r"^[A-Z]{3,5}\d{1,2}(?:\.SA)?$")
 
 def normalize_ticker(t: str) -> str:
-    """Normaliza o ticker: maiúsculas, adiciona .SA se faltar e aparentar ser B3.
-    Mantém .SA quando já presente.
-    """
     t = (t or "").strip().upper()
     if not t:
         return ""
     if t.endswith(".SA"):
         return t
-    # heurística: se parece com ticker B3 (letras+digitos), adiciona .SA
     if re.match(r"^[A-Z]{3,5}\d{1,2}$", t):
         return f"{t}.SA"
-    return t  # deixa como está p/ casos internacionais
-
-def parse_tickers(texto: str) -> List[str]:
-    """Divide por vírgula, espaço ou quebra de linha."""
-    if not texto:
-        return []
-    raw = re.split(r"[\s,;]+", texto.strip())
-    return [x for x in raw if x]
+    return t
 
 def dedup_order(seq: List[str]) -> List[str]:
     seen = set()
@@ -50,67 +41,126 @@ def dedup_order(seq: List[str]) -> List[str]:
     return out
 
 # -----------------------------
-# 📋 Lista de referência (você pode editar)
+# 📂 Carregamento da classificação setorial
 # -----------------------------
-populares = [
-    "PETR4.SA", "VALE3.SA", "ITUB4.SA", "BBDC4.SA", "BBAS3.SA",
-    "ABEV3.SA", "BOVA11.SA", "WEGE3.SA", "RENT3.SA", "SUZB3.SA",
-    "PRIO3.SA", "GGBR4.SA", "LREN3.SA", "RAIL3.SA", "HAPV3.SA",
-]
-
-colA, colB = st.columns([1.2, 1])
-with colA:
-    st.subheader("1) Escolha a partir de uma lista sugerida")
-    selecao = st.multiselect(
-        "Selecione ativos (você pode digitar para buscar):",
-        options=populares,
-        default=["PETR4.SA", "VALE3.SA", "ITUB4.SA"],
-    )
-
-with colB:
-    st.subheader("2) Informe manualmente (opcional)")
-    texto_livre = st.text_area(
-        "Cole/Digite tickers separados por vírgula, espaço ou quebra de linha",
-        value="PETR4, VALE3, ITUB4, BOVA11",
-        height=120,
-    )
-
-st.subheader("3) Upload por arquivo (opcional)")
-st.write("Aceita `.csv` com uma coluna chamada `ticker`.")
-up = st.file_uploader("Envie um CSV de tickers", type=["csv"])
-
-# -----------------------------
-# 🧮 Consolidação & Validação
-# -----------------------------
-lista_texto = [normalize_ticker(t) for t in parse_tickers(texto_livre)]
-lista_upload = []
-if up is not None:
-    try:
-        df_up = pd.read_csv(up)
-        col = None
-        for c in df_up.columns:
-            if c.strip().lower() in {"ticker", "tickers", "papel"}:
-                col = c
+@st.cache_data(show_spinner=False)
+def load_classificacao(path: str = "ClassifSetorial.xlsx") -> pd.DataFrame:
+    """Lê o Excel de classificação e normaliza nomes de colunas.
+    Espera colunas pelo menos: Ticker, Setor (opcionalmente Empresa/SubSetor/Segmento).
+    """
+    df = pd.read_excel(path)
+    # normaliza nomes
+    df.columns = [c.strip().lower() for c in df.columns]
+    # mapeia aliases comuns
+    colmap = {}
+    for alvo, aliases in {
+        "ticker": ["ticker", "papel", "ativo"],
+        "empresa": ["empresa", "nome", "companhia"],
+        "setor": ["setor", "sector"],
+        "subsetor": ["subsetor", "sub-setor", "subsector"],
+        "segmento": ["segmento", "segment"]
+    }.items():
+        for a in aliases:
+            if a in df.columns:
+                colmap[a] = alvo
                 break
-        if col is None:
-            st.error("CSV deve conter uma coluna `ticker` (ou `papel`).")
-        else:
-            lista_upload = [normalize_ticker(str(x)) for x in df_up[col].astype(str).tolist()]
-    except Exception as e:
-        st.error(f"Falha ao ler CSV: {e}")
+    df = df.rename(columns=colmap)
+    if "ticker" not in df.columns or "setor" not in df.columns:
+        raise ValueError("O arquivo ClassifSetorial.xlsx deve conter ao menos as colunas 'Ticker' e 'Setor'.")
+    # normaliza tickers
+    df["ticker"] = df["ticker"].astype(str).str.upper().str.strip().apply(normalize_ticker)
+    # remove linhas vazias
+    df = df.dropna(subset=["ticker", "setor"]).reset_index(drop=True)
+    return df
 
-todos_raw = list(selecao) + lista_texto + lista_upload
-# remove vazios, normaliza e deduplica
-norm = [normalize_ticker(t) for t in todos_raw if str(t).strip()] 
-lista_final = dedup_order(norm)
+# tenta carregar
+try:
+    df_class = load_classificacao()
+    setores = sorted(df_class["setor"].dropna().unique().tolist())
+except Exception as e:
+    df_class = pd.DataFrame()
+    setores = []
+    st.warning(f"Não foi possível carregar `ClassifSetorial.xlsx`: {e}")
 
-# validação
+# -----------------------------
+# 🎛️ Modo de seleção
+# -----------------------------
+modo = st.radio(
+    "Como deseja selecionar?",
+    ["Por setor", "Por ticker"],
+    horizontal=True,
+)
+
 validos = []
 invalidos = []
-for t in lista_final:
-    if TICKER_PATTERN.match(t):
-        validos.append(t)
+
+if modo == "Por setor":
+    st.subheader("Selecionar por Setor")
+    if df_class.empty:
+        st.error("O arquivo `ClassifSetorial.xlsx` não foi encontrado ou está inválido. Envie o arquivo para o repositório e atualize a página.")
     else:
+        cols = st.columns([1.2, 1.2, 1])
+        with cols[0]:
+            setores_sel = st.multiselect("Setores", options=setores)
+        # filtra por setor
+        if setores_sel:
+            df_filtrado = df_class[df_class["setor"].isin(setores_sel)].copy()
+            # subsetor e segmento, se existirem
+            if "subsetor" in df_filtrado.columns:
+                subsets = sorted(df_filtrado["subsetor"].dropna().unique().tolist())
+            else:
+                subsets = []
+            if "segmento" in df_filtrado.columns:
+                segs = sorted(df_filtrado["segmento"].dropna().unique().tolist())
+            else:
+                segs = []
+            with cols[1]:
+                if subsets:
+                    subset_sel = st.multiselect("Subsetores (opcional)", options=subsets)
+                    if subset_sel:
+                        df_filtrado = df_filtrado[df_filtrado["subsetor"].isin(subset_sel)]
+                if segs:
+                    seg_sel = st.multiselect("Segmentos (opcional)", options=segs)
+                    if seg_sel:
+                        df_filtrado = df_filtrado[df_filtrado["segmento"].isin(seg_sel)]
+            with cols[2]:
+                st.metric("Empresas filtradas", len(df_filtrado))
+
+            # lista de tickers filtrados e escolha final
+            # se existir coluna empresa, mostra no label
+            if "empresa" in df_filtrado.columns:
+                opcoes = df_filtrado[["ticker", "empresa"]].drop_duplicates()
+                opcoes["label"] = opcoes["ticker"] + " — " + opcoes["empresa"].astype(str)
+                labels = opcoes["label"].tolist()
+                label_to_ticker = dict(zip(opcoes["label"], opcoes["ticker"]))
+                escolha = st.multiselect("Escolha as empresas do filtro:", options=labels)
+                validos = [label_to_ticker[l] for l in escolha]
+            else:
+                opcoes = sorted(df_filtrado["ticker"].drop_duplicates().tolist())
+                validos = st.multiselect("Escolha as empresas do filtro:", options=opcoes)
+        else:
+            st.info("Selecione ao menos um setor para ver as empresas.")
+
+else:  # Por ticker
+    st.subheader("Selecionar por Ticker")
+    # Sugestões (opcionais)
+    sugestoes = [
+        "PETR4.SA", "VALE3.SA", "ITUB4.SA", "BBDC4.SA", "BBAS3.SA",
+        "ABEV3.SA", "BOVA11.SA", "WEGE3.SA", "RENT3.SA", "SUZB3.SA",
+        "PRIO3.SA", "GGBR4.SA", "LREN3.SA", "RAIL3.SA", "HAPV3.SA",
+    ]
+    # Se tivermos df_class, usamos tickers de lá como options
+    options = sorted(df_class["ticker"].unique().tolist()) if not df_class.empty else sugestoes
+    selecionados = st.multiselect(
+        "Digite ou escolha tickers:",
+        options=options,
+        default=["PETR4.SA", "VALE3.SA", "ITUB4.SA"],
+    )
+    validos = [normalize_ticker(t) for t in selecionados if t]
+
+# validação simples
+for t in validos:
+    if not TICKER_PATTERN.match(t):
         invalidos.append(t)
 
 st.markdown("---")
@@ -119,13 +169,13 @@ col1, col2 = st.columns(2)
 with col1:
     st.write(f"**Válidos ({len(validos)}):**")
     if validos:
-        st.code(", ".join(validos))
+        st.code(", ".join(dedup_order(validos)))
     else:
         st.info("Nenhum ticker válido até o momento.")
 with col2:
     st.write(f"**Suspeitos/Inválidos ({len(invalidos)}):**")
     if invalidos:
-        st.warning(", ".join(invalidos))
+        st.warning(", ".join(dedup_order(invalidos)))
     else:
         st.success("Nenhum inválido detectado.")
 
@@ -133,13 +183,13 @@ st.markdown("---")
 confirm = st.button("✅ Confirmar seleção e salvar no estado", type="primary")
 if confirm:
     if not validos:
-        st.error("Seleção vazia. Adicione ao menos 1 ticker válido.")
+        st.error("Seleção vazia. Adicione ao menos 1 ticker.")
     else:
-        st.session_state["tickers_selecionados"] = validos
-        st.success(f"Selecionados {len(validos)} tickers.")
+        final = dedup_order([normalize_ticker(t) for t in validos])
+        st.session_state["tickers_selecionados"] = final
+        st.success(f"Selecionados {len(final)} tickers.")
         st.toast("Tickers salvos! Siga para a Etapa 2 (coleta de dados).", icon="✅")
 
-# Exibe no rodapé o estado atual (útil ao integrar com as próximas etapas)
 if "tickers_selecionados" in st.session_state:
     st.caption("**Estado atual**: tickers selecionados → " + ", ".join(st.session_state["tickers_selecionados"]))
 else:
