@@ -475,12 +475,266 @@ def etapa2_coleta_dados():
     st.download_button("⬇️ Baixar CSV (overview da empresa)", data=csv_bytes,
                        file_name=f"{ticker}_overview.csv", mime="text/csv")
 
+# ============================================================
+# ETAPA 3 — Análise avançada (cards + comparativo setorial)
+# ============================================================
+
+# ——— Utilitários de normalização/score ———
+def _minmax(series: pd.Series) -> pd.Series:
+    s = series.copy().astype(float)
+    if s.max() == s.min():
+        return pd.Series([0.5] * len(s), index=s.index)
+    return (s - s.min()) / (s.max() - s.min())
+
+def _safe(v):
+    try:
+        return float(v)
+    except Exception:
+        return np.nan
+
+def _score_value(df: pd.DataFrame) -> pd.Series:
+    # Quanto MENOR melhor: P/L, P/VP, EV/EBITDA, P/Sales
+    cols = ["P/L", "P/VP", "EV/EBITDA", "P/Sales"]
+    tmp = df[cols].applymap(_safe)
+    inv = 1 - _minmax(tmp)  # menor => maior score
+    return inv.mean(axis=1)
+
+def _score_profit(df: pd.DataFrame) -> pd.Series:
+    cols = ["ROE (%)", "ROA (%)", "Margem Líquida (%)", "Margem Operacional (%)", "Margem EBITDA (%)"]
+    tmp = df[cols].applymap(_safe)
+    return _minmax(tmp).mean(axis=1)
+
+def _score_strength(df: pd.DataFrame) -> pd.Series:
+    # Melhor força = MENOR Debt/Equity, MAIOR Current/Quick
+    cols_low  = ["Debt/Equity"]
+    cols_high = ["Current Ratio", "Quick Ratio"]
+    part_low  = (1 - _minmax(df[cols_low].applymap(_safe))) if all(c in df for c in cols_low) else 0
+    part_high = (_minmax(df[cols_high].applymap(_safe)))       if all(c in df for c in cols_high) else 0
+    if isinstance(part_low, (int,float)) and isinstance(part_high, (int,float)):
+        return pd.Series([np.nan]*len(df), index=df.index)
+    if isinstance(part_low, (int,float)):  # só high
+        return part_high.mean(axis=1)
+    if isinstance(part_high, (int,float)): # só low
+        return part_low.mean(axis=1)
+    return pd.concat([part_low, part_high], axis=1).mean(axis=1)
+
+def _score_momentum(px: pd.Series) -> dict:
+    out = {}
+    out["1M"]  = _momentum_from_series(px, TRADING_DAYS["1M"])
+    out["3M"]  = _momentum_from_series(px, TRADING_DAYS["3M"])
+    out["6M"]  = _momentum_from_series(px, TRADING_DAYS["6M"])
+    out["12M"] = _momentum_from_series(px, TRADING_DAYS["12M"])
+    return out
+
+@st.cache_data(show_spinner=True)
+def _fetch_peers_overview(tickers: list, period_prices: str = "2y"):
+    """Coleta info de múltiplos para uma lista de tickers (sem preços)."""
+    rows = []
+    for tk in tickers:
+        try:
+            t = yf.Ticker(tk)
+            info = t.info
+            rows.append({
+                "Ticker": tk,
+                "P/L": _safe(info.get("trailingPE")),
+                "P/VP": _safe(info.get("priceToBook")),
+                "EV/EBITDA": _safe(info.get("enterpriseToEbitda")),
+                "P/Sales": _safe(info.get("priceToSalesTrailing12Months")),
+                "Dividend Yield (%)": _as_pct(info.get("dividendYield")),
+                "ROE (%)": _as_pct(info.get("returnOnEquity")),
+                "ROA (%)": _as_pct(info.get("returnOnAssets")),
+                "Margem Líquida (%)": _as_pct(info.get("profitMargins")),
+                "Margem Operacional (%)": _as_pct(info.get("operatingMargins")),
+                "Margem EBITDA (%)": _as_pct(info.get("ebitdaMargins")),
+                "Debt/Equity": _safe(info.get("debtToEquity")),
+                "Current Ratio": _safe(info.get("currentRatio")),
+                "Quick Ratio": _safe(info.get("quickRatio")),
+                "Setor": info.get("sector"),
+                "Empresa": info.get("longName"),
+                "Market Cap (R$ bi)": (_safe(info.get("marketCap"))/1e9 if info.get("marketCap") else np.nan),
+            })
+        except Exception:
+            pass
+    return pd.DataFrame(rows)
+
+def etapa3_analise_avancada():
+    st.markdown("### Etapa 3 — Análise avançada (scores e pares do setor)")
+    ticker = st.session_state.get("empresa_escolhida")
+    if not ticker:
+        st.info("Selecione e confirme uma empresa nas etapas anteriores.")
+        return
+
+    # — Parâmetros de análise —
+    c1, c2 = st.columns([1,1])
+    with c1:
+        period_prices = st.selectbox("Período para momentum", ["1y", "2y", "5y"], index=1, key="e3_period")
+    with c2:
+        topN = st.slider("Máx. de pares (mesmo setor)", min_value=4, max_value=20, value=10, step=1,
+                         help="Para não pesar a coleta, limitamos a quantidade de pares.")
+
+    # — Dados da empresa (reutiliza cache da etapa 2 quando possível) —
+    if "empresa_info_df" in st.session_state and "empresa_px" in st.session_state:
+        df_info_self = st.session_state["empresa_info_df"].copy()
+        px_self = st.session_state["empresa_px"].copy()
+    else:
+        info, px_self, _ = fetch_yf_info_and_prices(ticker, period_prices=period_prices)
+        df_info_self = _build_overview_from_info(info)
+
+    # Scores e momentum da empresa
+    df_self = df_info_self.copy()
+    mom = _score_momentum(px_self)
+    df_self["Momentum 1M (%)"]  = mom["1M"]*100 if mom["1M"]==mom["1M"] else np.nan
+    df_self["Momentum 3M (%)"]  = mom["3M"]*100 if mom["3M"]==mom["3M"] else np.nan
+    df_self["Momentum 6M (%)"]  = mom["6M"]*100 if mom["6M"]==mom["6M"] else np.nan
+    df_self["Momentum 12M (%)"] = mom["12M"]*100 if mom["12M"]==mom["12M"] else np.nan
+
+    # — Encontrar pares (mesmo setor) a partir do Excel —
+    df_class, msg = load_classif_setorial()
+    if msg:
+        st.warning("Não foi possível ler a base setorial. Mostrando apenas a empresa selecionada.")
+        peers_list = []
+    else:
+        # tenta inferir setor: prioriza o setor retornado no yfinance; se não, cruza Excel
+        setor_self = df_info_self.at[0, "Setor"] if "Setor" in df_info_self.columns else None
+        if not setor_self or setor_self == "" or setor_self == "None":
+            # tenta pelo Excel: acha a linha da empresa
+            tcol = "Ticker" if "Ticker" in df_class.columns else None
+            if tcol is None and "Codigo" in df_class.columns:
+                # se só tiver Codigo, não é 1-para-1; ignoramos
+                setor_self = None
+            else:
+                m = df_class[df_class.get("Ticker","").str.upper()==ticker.upper()]
+                setor_self = m["Setor"].iloc[0] if not m.empty else None
+
+        if setor_self:
+            df_sector = df_class[df_class["Setor"]==setor_self].copy()
+            # coluna do ticker final usada na etapa 1; se não existir, tentamos Ticker
+            t_final = "TickerFinal" if "TickerFinal" in df_sector.columns else "Ticker"
+            if t_final in df_sector.columns:
+                peers_list = [t for t in df_sector[t_final].dropna().unique().tolist() if isinstance(t,str)]
+            else:
+                peers_list = []
+        else:
+            peers_list = []
+
+        # limpa, remove o próprio ticker, limita
+        peers_list = [t for t in peers_list if t and t != ticker]
+        peers_list = peers_list[:topN]
+
+    # — Coleta dos pares —
+    df_peers = _fetch_peers_overview(peers_list, period_prices=period_prices) if peers_list else pd.DataFrame()
+
+    # — Consolidação (empresa + pares) —
+    df_all = pd.concat([
+        df_self.assign(Ticker=ticker)[[
+            "Ticker","Empresa","Setor","P/L","P/VP","EV/EBITDA","P/Sales",
+            "Dividend Yield (%)","ROE (%)","ROA (%)","Margem Líquida (%)",
+            "Margem Operacional (%)","Margem EBITDA (%)","Debt/Equity",
+            "Current Ratio","Quick Ratio","Market Cap (R$ bi)",
+            "Momentum 1M (%)","Momentum 3M (%)","Momentum 6M (%)","Momentum 12M (%)",
+        ]],
+        df_peers.reindex(columns=[
+            "Ticker","Empresa","Setor","P/L","P/VP","EV/EBITDA","P/Sales",
+            "Dividend Yield (%)","ROE (%)","ROA (%)","Margem Líquida (%)",
+            "Margem Operacional (%)","Margem EBITDA (%)","Debt/Equity",
+            "Current Ratio","Quick Ratio","Market Cap (R$ bi)"
+        ])
+    ], ignore_index=True)
+
+    # — Cálculo de scores —
+    df_scores = df_all.copy()
+    df_scores["Score Value"]   = _score_value(df_scores)
+    df_scores["Score Profit"]  = _score_profit(df_scores)
+    df_scores["Score Strength"]= _score_strength(df_scores)
+    # Momentum composto (média dos disponíveis)
+    mom_cols = ["Momentum 1M (%)","Momentum 3M (%)","Momentum 6M (%)","Momentum 12M (%)"]
+    df_scores["Score Momentum"] = _minmax(df_scores[mom_cols].applymap(_safe)).mean(axis=1)
+
+    # Score geral (pesos ajustáveis – por enquanto fixos; depois podemos expor sliders)
+    W_VALUE, W_PROFIT, W_STRENGTH, W_MOM = 0.30, 0.30, 0.20, 0.20
+    df_scores["Score Total"] = (
+        W_VALUE*df_scores["Score Value"] +
+        W_PROFIT*df_scores["Score Profit"] +
+        W_STRENGTH*df_scores["Score Strength"] +
+        W_MOM*df_scores["Score Momentum"]
+    )
+
+    # — Cards da empresa (destaques) —
+    st.markdown("#### 🧾 Destaques (empresa selecionada)")
+    c1, c2, c3, c4 = st.columns(4)
+    row_self = df_scores[df_scores["Ticker"]==ticker].iloc[0]
+    with c1: st.metric("Score Value",     f"{row_self['Score Value']*100:,.0f} / 100")
+    with c2: st.metric("Score Profit",    f"{row_self['Score Profit']*100:,.0f} / 100")
+    with c3: st.metric("Score Strength",  f"{row_self['Score Strength']*100:,.0f} / 100")
+    with c4: st.metric("Score Momentum",  f"{row_self['Score Momentum']*100:,.0f} / 100")
+
+    # — Gráficos —
+    st.markdown("#### 📊 Comparativos do setor")
+    g1, g2 = st.columns(2)
+
+    # (a) Dispersão P/L × ROE com tamanho por Market Cap
+    with g1:
+        if not df_scores.empty:
+            fig_sc = px.scatter(
+                df_scores, x="P/L", y="ROE (%)", color="Ticker",
+                size="Market Cap (R$ bi)", hover_name="Empresa",
+                title="P/L × ROE (bolha = Market Cap)"
+            )
+            # destaca a empresa
+            fig_sc.add_scatter(
+                x=[row_self["P/L"]], y=[row_self["ROE (%)"]],
+                mode="markers+text", text=[ticker], textposition="top center",
+                marker=dict(size=14, symbol="star")
+            )
+            st.plotly_chart(fig_sc, use_container_width=True)
+        else:
+            st.info("Sem pares (setor não encontrado ou sem tickers válidos).")
+
+    # (b) Barras margens (empresa vs. mediana do setor)
+    with g2:
+        if not df_scores.empty:
+            cols_marg = ["Margem Líquida (%)","Margem Operacional (%)","Margem EBITDA (%)"]
+            med_setor = df_scores[cols_marg].median(numeric_only=True)
+            bar_df = pd.DataFrame({
+                "Indicador": cols_marg,
+                "Empresa": [row_self[c] for c in cols_marg],
+                "Setor (mediana)": [med_setor[c] for c in cols_marg]
+            })
+            fig_bar = go.Figure()
+            fig_bar.add_bar(x=bar_df["Indicador"], y=bar_df["Empresa"], name=ticker)
+            fig_bar.add_bar(x=bar_df["Indicador"], y=bar_df["Setor (mediana)"], name="Setor (mediana)")
+            fig_bar.update_layout(barmode="group", title="Margens: empresa vs. setor (mediana)")
+            st.plotly_chart(fig_bar, use_container_width=True)
+        else:
+            st.info("Sem dados suficientes para margens do setor.")
+
+    st.markdown("#### 📋 Tabela (empresa + pares)")
+    st.dataframe(
+        df_scores.sort_values("Score Total", ascending=False).reset_index(drop=True),
+        use_container_width=True, height=420
+    )
+
+    # Export
+    st.download_button(
+        "⬇️ Baixar CSV (empresa + pares + scores)",
+        data=df_scores.to_csv(index=False).encode("utf-8"),
+        file_name=f"{ticker}_pares_scores.csv",
+        mime="text/csv"
+    )
+
+    # Guarda em sessão para eventuais próximas etapas
+    st.session_state["etapa3_df_scores"] = df_scores
+
+
 def render_single_layout():
     st.subheader("🔎 Análise Individual")
-    etapa1_selecao_empresa()      # Seleção (Etapa 1)
+    etapa1_selecao_empresa()      # Etapa 1
     if "empresa_escolhida" in st.session_state:
         st.markdown("---")
-        etapa2_coleta_dados()     # Coleta e visão geral (Etapa 2)
+        etapa2_coleta_dados()     # Etapa 2
+        st.markdown("---")
+        etapa3_analise_avancada() # Etapa 3
+
 
 def render_screener_layout():
     st.subheader("📈 Screener / Ranking — layout")
