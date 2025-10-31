@@ -474,10 +474,10 @@ def etapa2_coleta_dados():
     csv_bytes = df_info.to_csv(index=False).encode("utf-8")
     st.download_button("⬇️ Baixar CSV (overview da empresa)", data=csv_bytes,
                        file_name=f"{ticker}_overview.csv", mime="text/csv")
-
-# Guardar dados para a Etapa 3
-st.session_state["empresa_info_df"] = df_info
-st.session_state["empresa_px"] = px
+    
+    # ✅ Salva no estado para a Etapa 3
+    st.session_state["empresa_info_df"] = df_info
+    st.session_state["empresa_px"] = px
 
 # ============================================================
 # ETAPA 3 — Análise avançada (cards + comparativo setorial)
