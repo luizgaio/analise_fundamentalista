@@ -14,11 +14,8 @@ from typing import List
 
 st.set_page_config(page_title="Step 1 – Seleção de Ativos", layout="wide")
 st.title("📌 Step 1 — Seleção de Ativos (.SA)")
-st.caption("Selecione as empresas por **setor** (a partir do arquivo `ClassifSetorial.xlsx`) ou diretamente por **ticker**. O sufixo .SA é adicionado automaticamente.")
+st.caption("Selecione empresas por **setor** (ClassifSetorial.xlsx) ou diretamente por **ticker**. O sufixo .SA é adicionado automaticamente.")
 
-# -----------------------------
-# 🔧 Utilitários
-# -----------------------------
 TICKER_PATTERN = re.compile(r"^[A-Z]{3,5}\d{1,2}(?:\.SA)?$")
 
 def normalize_ticker(t: str) -> str:
@@ -32,147 +29,122 @@ def normalize_ticker(t: str) -> str:
     return t
 
 def dedup_order(seq: List[str]) -> List[str]:
-    seen = set()
-    out = []
+    seen, out = set(), []
     for x in seq:
-        if x not in seen:
-            seen.add(x)
-            out.append(x)
+        if x and x not in seen:
+            seen.add(x); out.append(x)
     return out
 
-# -----------------------------
-# 📂 Carregamento da classificação setorial
-# -----------------------------
 @st.cache_data(show_spinner=False)
 def load_classificacao(path: str = "ClassifSetorial.xlsx") -> pd.DataFrame:
-    """Lê o Excel de classificação e normaliza nomes de colunas.
-    Espera colunas pelo menos: Ticker, Setor (opcionalmente Empresa/SubSetor/Segmento).
-    """
-    df = pd.read_excel(path)
+    # tenta ler Excel; se não existir ou faltar lib, retorna df vazio e mensagem
+    try:
+        df = pd.read_excel(path, engine="openpyxl")
+    except FileNotFoundError:
+        return pd.DataFrame(), "Arquivo 'ClassifSetorial.xlsx' não encontrado na raiz do repositório."
+    except Exception as e:
+        return pd.DataFrame(), f"Falha ao abrir o Excel: {e}"
+
     # normaliza nomes
     df.columns = [c.strip().lower() for c in df.columns]
-    # mapeia aliases comuns
-    colmap = {}
-    for alvo, aliases in {
-        "ticker": ["ticker", "papel", "ativo"],
-        "empresa": ["empresa", "nome", "companhia"],
-        "setor": ["setor", "sector"],
+
+    # mapeia colunas
+    alias_map = {
+        "ticker":   ["ticker", "papel", "ativo"],
+        "empresa":  ["empresa", "nome", "companhia"],
+        "setor":    ["setor", "sector"],
         "subsetor": ["subsetor", "sub-setor", "subsector"],
         "segmento": ["segmento", "segment"]
-    }.items():
+    }
+    rename = {}
+    for alvo, aliases in alias_map.items():
         for a in aliases:
             if a in df.columns:
-                colmap[a] = alvo
+                rename[a] = alvo
                 break
-    df = df.rename(columns=colmap)
+    df = df.rename(columns=rename)
+
     if "ticker" not in df.columns or "setor" not in df.columns:
-        raise ValueError("O arquivo ClassifSetorial.xlsx deve conter ao menos as colunas 'Ticker' e 'Setor'.")
-    # normaliza tickers
+        return pd.DataFrame(), "O Excel precisa ter colunas equivalentes a 'Ticker' e 'Setor'."
+
     df["ticker"] = df["ticker"].astype(str).str.upper().str.strip().apply(normalize_ticker)
-    # remove linhas vazias
     df = df.dropna(subset=["ticker", "setor"]).reset_index(drop=True)
-    return df
+    return df, None
 
-# tenta carregar
-try:
-    df_class = load_classificacao()
-    setores = sorted(df_class["setor"].dropna().unique().tolist())
-except Exception as e:
-    df_class = pd.DataFrame()
-    setores = []
-    st.warning(f"Não foi possível carregar `ClassifSetorial.xlsx`: {e}")
+# Carrega classificação (se existir)
+df_class, class_msg = load_classificacao()
+tem_classificacao = isinstance(df_class, pd.DataFrame) and not df_class.empty and class_msg is None
 
-# -----------------------------
-# 🎛️ Modo de seleção
-# -----------------------------
-modo = st.radio(
-    "Como deseja selecionar?",
-    ["Por setor", "Por ticker"],
-    horizontal=True,
-)
+modo = st.radio("Como deseja selecionar?", ["Por setor", "Por ticker"], horizontal=True)
 
-validos = []
-invalidos = []
+validos, invalidos = [], []
 
 if modo == "Por setor":
     st.subheader("Selecionar por Setor")
-    if df_class.empty:
-        st.error("O arquivo `ClassifSetorial.xlsx` não foi encontrado ou está inválido. Envie o arquivo para o repositório e atualize a página.")
+    if not tem_classificacao:
+        st.warning(class_msg or "Classificação não disponível. Use a seleção por ticker.")
     else:
+        setores = sorted(df_class["setor"].dropna().unique().tolist())
         cols = st.columns([1.2, 1.2, 1])
         with cols[0]:
             setores_sel = st.multiselect("Setores", options=setores)
-        # filtra por setor
+
+        df_filtrado = df_class.copy()
         if setores_sel:
-            df_filtrado = df_class[df_class["setor"].isin(setores_sel)].copy()
-            # subsetor e segmento, se existirem
-            if "subsetor" in df_filtrado.columns:
-                subsets = sorted(df_filtrado["subsetor"].dropna().unique().tolist())
-            else:
-                subsets = []
-            if "segmento" in df_filtrado.columns:
-                segs = sorted(df_filtrado["segmento"].dropna().unique().tolist())
-            else:
-                segs = []
-            with cols[1]:
-                if subsets:
-                    subset_sel = st.multiselect("Subsetores (opcional)", options=subsets)
-                    if subset_sel:
-                        df_filtrado = df_filtrado[df_filtrado["subsetor"].isin(subset_sel)]
-                if segs:
-                    seg_sel = st.multiselect("Segmentos (opcional)", options=segs)
-                    if seg_sel:
-                        df_filtrado = df_filtrado[df_filtrado["segmento"].isin(seg_sel)]
-            with cols[2]:
-                st.metric("Empresas filtradas", len(df_filtrado))
+            df_filtrado = df_filtrado[df_filtrado["setor"].isin(setores_sel)]
 
-            # lista de tickers filtrados e escolha final
-            # se existir coluna empresa, mostra no label
-            if "empresa" in df_filtrado.columns:
-                opcoes = df_filtrado[["ticker", "empresa"]].drop_duplicates()
-                opcoes["label"] = opcoes["ticker"] + " — " + opcoes["empresa"].astype(str)
-                labels = opcoes["label"].tolist()
-                label_to_ticker = dict(zip(opcoes["label"], opcoes["ticker"]))
-                escolha = st.multiselect("Escolha as empresas do filtro:", options=labels)
-                validos = [label_to_ticker[l] for l in escolha]
-            else:
-                opcoes = sorted(df_filtrado["ticker"].drop_duplicates().tolist())
-                validos = st.multiselect("Escolha as empresas do filtro:", options=opcoes)
+        # Subfiltros opcionais
+        subsets = sorted(df_filtrado["subsetor"].dropna().unique().tolist()) if "subsetor" in df_filtrado.columns else []
+        segs    = sorted(df_filtrado["segmento"].dropna().unique().tolist()) if "segmento" in df_filtrado.columns else []
+
+        with cols[1]:
+            if subsets:
+                subset_sel = st.multiselect("Subsetores (opcional)", options=subsets)
+                if subset_sel:
+                    df_filtrado = df_filtrado[df_filtrado["subsetor"].isin(subset_sel)]
+            if segs:
+                seg_sel = st.multiselect("Segmentos (opcional)", options=segs)
+                if seg_sel:
+                    df_filtrado = df_filtrado[df_filtrado["segmento"].isin(seg_sel)]
+
+        with cols[2]:
+            st.metric("Empresas filtradas", len(df_filtrado))
+
+        # Escolha final
+        if "empresa" in df_filtrado.columns:
+            op = df_filtrado[["ticker", "empresa"]].drop_duplicates()
+            op["label"] = op["ticker"] + " — " + op["empresa"].astype(str)
+            labels = op["label"].tolist()
+            map_label = dict(zip(op["label"], op["ticker"]))
+            escolha = st.multiselect("Escolha as empresas:", options=labels)
+            validos = [map_label[l] for l in escolha]
         else:
-            st.info("Selecione ao menos um setor para ver as empresas.")
+            op = sorted(df_filtrado["ticker"].drop_duplicates().tolist())
+            validos = st.multiselect("Escolha as empresas:", options=op)
 
-else:  # Por ticker
+else:
     st.subheader("Selecionar por Ticker")
-    # Sugestões (opcionais)
     sugestoes = [
         "PETR4.SA", "VALE3.SA", "ITUB4.SA", "BBDC4.SA", "BBAS3.SA",
         "ABEV3.SA", "BOVA11.SA", "WEGE3.SA", "RENT3.SA", "SUZB3.SA",
         "PRIO3.SA", "GGBR4.SA", "LREN3.SA", "RAIL3.SA", "HAPV3.SA",
     ]
-    # Se tivermos df_class, usamos tickers de lá como options
-    options = sorted(df_class["ticker"].unique().tolist()) if not df_class.empty else sugestoes
-    selecionados = st.multiselect(
-        "Digite ou escolha tickers:",
-        options=options,
-        default=["PETR4.SA", "VALE3.SA", "ITUB4.SA"],
-    )
+    options = sorted(df_class["ticker"].unique().tolist()) if tem_classificacao else sugestoes
+    selecionados = st.multiselect("Digite ou escolha tickers:", options=options, default=["PETR4.SA","VALE3.SA","ITUB4.SA"])
     validos = [normalize_ticker(t) for t in selecionados if t]
 
-# validação simples
+# Validação
 for t in validos:
     if not TICKER_PATTERN.match(t):
         invalidos.append(t)
 
 st.markdown("---")
 st.subheader("✅ Pré-visualização da seleção")
-col1, col2 = st.columns(2)
-with col1:
+c1, c2 = st.columns(2)
+with c1:
     st.write(f"**Válidos ({len(validos)}):**")
-    if validos:
-        st.code(", ".join(dedup_order(validos)))
-    else:
-        st.info("Nenhum ticker válido até o momento.")
-with col2:
+    st.code(", ".join(dedup_order(validos)) if validos else "—")
+with c2:
     st.write(f"**Suspeitos/Inválidos ({len(invalidos)}):**")
     if invalidos:
         st.warning(", ".join(dedup_order(invalidos)))
@@ -180,20 +152,17 @@ with col2:
         st.success("Nenhum inválido detectado.")
 
 st.markdown("---")
-confirm = st.button("✅ Confirmar seleção e salvar no estado", type="primary")
-if confirm:
-    if not validos:
+if st.button("✅ Confirmar seleção e salvar no estado", type="primary"):
+    final = dedup_order([normalize_ticker(t) for t in validos])
+    if not final:
         st.error("Seleção vazia. Adicione ao menos 1 ticker.")
     else:
-        final = dedup_order([normalize_ticker(t) for t in validos])
         st.session_state["tickers_selecionados"] = final
         st.success(f"Selecionados {len(final)} tickers.")
         st.toast("Tickers salvos! Siga para a Etapa 2 (coleta de dados).", icon="✅")
 
-if "tickers_selecionados" in st.session_state:
-    st.caption("**Estado atual**: tickers selecionados → " + ", ".join(st.session_state["tickers_selecionados"]))
-else:
-    st.caption("**Estado atual**: ainda não há tickers salvos. Clique em Confirmar quando estiver pronto.")
+st.caption("**Estado atual**: " + (", ".join(st.session_state.get("tickers_selecionados", [])) or "nenhum ticker salvo."))
+
 
 # ============================================================
 # ETAPA 2 — Coleta e preparação de dados (yfinance)
