@@ -702,18 +702,46 @@ def etapa3_analise_avancada():
     # (a) Dispersão P/L × ROE com tamanho por Market Cap
     with g1:
         if not df_scores.empty:
-            fig_sc = px.scatter(
-                df_scores, x="P/L", y="ROE (%)", color="Ticker",
-                size="Market Cap (R$ bi)", hover_name="Empresa",
-                title="P/L × ROE (bolha = Market Cap)"
-            )
-            # destaca a empresa
-            fig_sc.add_scatter(
-                x=[row_self["P/L"]], y=[row_self["ROE (%)"]],
-                mode="markers+text", text=[ticker], textposition="top center",
-                marker=dict(size=14, symbol="star")
-            )
-            st.plotly_chart(fig_sc, use_container_width=True)
+            # Saneamento para o Plotly
+            df_plot = df_scores.copy()
+            for col in ["P/L", "ROE (%)", "Market Cap (R$ bi)"]:
+                df_plot[col] = pd.to_numeric(df_plot[col], errors="coerce")
+
+            # remove linhas sem X ou Y válidos
+            df_plot = df_plot.dropna(subset=["P/L", "ROE (%)"]).copy()
+
+            if df_plot.empty:
+                st.info("Sem dados numéricos suficientes para P/L e ROE dos pares.")
+            else:
+                # tamanho (não pode ter NaN/negativo/inf)
+                sz = df_plot["Market Cap (R$ bi)"].replace([np.inf, -np.inf], np.nan).fillna(0.0)
+                sz = sz.clip(lower=0.0) + 0.1  # evita zero puro
+
+                fig_sc = px.scatter(
+                    df_plot,
+                    x="P/L",
+                    y="ROE (%)",
+                    color="Ticker",
+                    size=sz,                       # ← usa série saneada
+                    hover_name="Empresa",
+                    title="P/L × ROE (bolha = Market Cap)"
+                )
+
+                # destaca a empresa selecionada (se houver ponto válido)
+                try:
+                    row_self = df_plot[df_plot["Ticker"] == ticker].iloc[0]
+                    x_self = float(row_self["P/L"])
+                    y_self = float(row_self["ROE (%)"])
+                    if np.isfinite(x_self) and np.isfinite(y_self):
+                        fig_sc.add_scatter(
+                            x=[x_self], y=[y_self],
+                            mode="markers+text", text=[ticker], textposition="top center",
+                            marker=dict(size=14, symbol="star")
+                        )
+                except Exception:
+                    pass
+
+                st.plotly_chart(fig_sc, use_container_width=True)
         else:
             st.info("Sem pares (setor não encontrado ou sem tickers válidos).")
 
