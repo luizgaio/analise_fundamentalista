@@ -635,34 +635,11 @@ def etapa3_analise_avancada():
         peers_list = [t for t in peers_list if t != ticker][:topN]  # remove o próprio e limita
     else:
         peers_list = []
-
-    if msg:
-        st.warning("Não foi possível ler a base setorial. Mostrando apenas a empresa selecionada.")
-        peers_list = []
-    else:
-        # tenta inferir setor: prioriza o setor retornado no yfinance; se não, cruza Excel
-        setor_self = df_info_self.at[0, "Setor"] if "Setor" in df_info_self.columns else None
-        if not setor_self or setor_self == "" or setor_self == "None":
-            # tenta pelo Excel: acha a linha da empresa
-            tcol = "Ticker" if "Ticker" in df_class.columns else None
-            if tcol is None and "Codigo" in df_class.columns:
-                # se só tiver Codigo, não é 1-para-1; ignoramos
-                setor_self = None
-            else:
-                m = df_class[df_class.get("Ticker","").str.upper()==ticker.upper()]
-                setor_self = m["Setor"].iloc[0] if not m.empty else None
-
-        if setor_self:
-            df_sector = df_class[df_class["Setor"] == setor_self].copy()
-            peers_list = [t for t in df_sector["TickerFinal"].dropna().unique().tolist() if isinstance(t, str)]
-            # tira o próprio ticker e limita a quantidade
-            peers_list = [t for t in peers_list if t != ticker][:topN]
-        else:
-            peers_list = []
-
-        # limpa, remove o próprio ticker, limita
-        peers_list = [t for t in peers_list if t and t != ticker]
-        peers_list = peers_list[:topN]
+    
+    with st.expander("🔍 Diagnóstico dos pares", expanded=False):
+    st.write("Setor (Excel):", setor_self)
+    st.write("Qtd. pares:", len(peers_list))
+    st.write(peers_list[:20])
 
     # — Coleta dos pares —
     df_peers = _fetch_peers_overview(peers_list, period_prices=period_prices) if peers_list else pd.DataFrame()
