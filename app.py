@@ -292,8 +292,8 @@ def etapa1_selecao_empresa():
 
     # 2) Série padrão (somente usada se Ticker não existir na planilha)
     col_ser = st.columns([1, 3])[0]
-    serie_padrao = col_ser.selectbox("Série padrão quando faltar Ticker", ["3", "4", "11"], index=0,
-                                     help="Usada para montar PETR + 4 → PETR4.SA quando a planilha só tiver 'CÓDIGO'.")
+    serie_padrao = col_ser.selectbox("Escolha o tipo de Ação", ["3", "4", "5", "6", "11"], index=0,
+                                     help="3 para ON; 4, 5 e 6 para PN e 11 para Unit. Será usado para montar PETR + 4 → PETR4.SA.")
 
     # 3) Monta coluna TickerFinal (preferência por Ticker; senão Codigo + série)
     def _build_ticker(row: pd.Series) -> str:
