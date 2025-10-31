@@ -768,6 +768,61 @@ def etapa3_analise_avancada():
         df_scores.sort_values("Score Total", ascending=False).reset_index(drop=True),
         use_container_width=True, height=420
     )
+    
+    # --- NOVOS COMPARATIVOS: RENTABILIDADES e LIQUIDEZ ---
+    st.markdown("#### 📊 Comparativos adicionais")
+
+    h1, h2 = st.columns(2)
+
+    # (c) Barras: ROE e ROA — empresa vs mediana do setor
+    with h1:
+        if not df_scores.empty:
+            # garante numérico
+            df_tmp = df_scores.copy()
+            for col in ["ROE (%)", "ROA (%)"]:
+                df_tmp[col] = pd.to_numeric(df_tmp[col], errors="coerce")
+
+            med_setor = df_tmp[["ROE (%)", "ROA (%)"]].median(numeric_only=True)
+            row_plot = df_tmp[df_tmp["Ticker"] == ticker].iloc[0]
+
+            bar_df = pd.DataFrame({
+                "Indicador": ["ROE (%)", "ROA (%)"],
+                "Empresa": [row_plot["ROE (%)"], row_plot["ROA (%)"]],
+                "Setor (mediana)": [med_setor["ROE (%)"], med_setor["ROA (%)"]],
+            })
+
+            fig_bar_rent = go.Figure()
+            fig_bar_rent.add_bar(x=bar_df["Indicador"], y=bar_df["Empresa"], name=ticker)
+            fig_bar_rent.add_bar(x=bar_df["Indicador"], y=bar_df["Setor (mediana)"], name="Setor (mediana)")
+            fig_bar_rent.update_layout(barmode="group", title="Rentabilidades: empresa vs. setor (mediana)",
+                                       yaxis_title="%")
+            st.plotly_chart(fig_bar_rent, use_container_width=True)
+        else:
+            st.info("Sem dados suficientes para ROE/ROA.")
+
+    # (d) Barras: Liquidez — Current Ratio e Quick Ratio (empresa vs mediana do setor)
+    with h2:
+        if not df_scores.empty:
+            df_tmp = df_scores.copy()
+            for col in ["Current Ratio", "Quick Ratio"]:
+                df_tmp[col] = pd.to_numeric(df_tmp[col], errors="coerce")
+
+            med_setor = df_tmp[["Current Ratio", "Quick Ratio"]].median(numeric_only=True)
+            row_plot = df_tmp[df_tmp["Ticker"] == ticker].iloc[0]
+
+            bar_df = pd.DataFrame({
+                "Indicador": ["Current Ratio", "Quick Ratio"],
+                "Empresa": [row_plot["Current Ratio"], row_plot["Quick Ratio"]],
+                "Setor (mediana)": [med_setor["Current Ratio"], med_setor["Quick Ratio"]],
+            })
+
+            fig_bar_liq = go.Figure()
+            fig_bar_liq.add_bar(x=bar_df["Indicador"], y=bar_df["Empresa"], name=ticker)
+            fig_bar_liq.add_bar(x=bar_df["Indicador"], y=bar_df["Setor (mediana)"], name="Setor (mediana)")
+            fig_bar_liq.update_layout(barmode="group", title="Liquidez: empresa vs. setor (mediana)")
+            st.plotly_chart(fig_bar_liq, use_container_width=True)
+        else:
+            st.info("Sem dados suficientes para liquidez.")
 
     # Export
     st.download_button(
