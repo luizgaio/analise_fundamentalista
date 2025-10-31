@@ -480,11 +480,22 @@ def etapa2_coleta_dados():
 # ============================================================
 
 # ——— Utilitários de normalização/score ———
-def _minmax(series: pd.Series) -> pd.Series:
-    s = series.copy().astype(float)
-    if s.max() == s.min():
-        return pd.Series([0.5] * len(s), index=s.index)
-    return (s - s.min()) / (s.max() - s.min())
+def _minmax(x):
+    # Aceita Series OU DataFrame
+    if isinstance(x, pd.DataFrame):
+        s = x.copy().astype(float)
+        col_min = s.min(numeric_only=True)
+        col_max = s.max(numeric_only=True)
+        rng = col_max - col_min
+        # evita divisão por zero: onde rng==0, devolve 0.5
+        rng = rng.replace(0, np.nan)
+        out = (s - col_min) / rng
+        return out.fillna(0.5)
+    else:
+        s = pd.to_numeric(pd.Series(x), errors="coerce")
+        if s.empty or s.max() == s.min():
+            return pd.Series([0.5] * len(s), index=s.index)
+        return (s - s.min()) / (s.max() - s.min())
 
 def _safe(v):
     try:
@@ -493,10 +504,10 @@ def _safe(v):
         return np.nan
 
 def _score_value(df: pd.DataFrame) -> pd.Series:
-    # Quanto MENOR melhor: P/L, P/VP, EV/EBITDA, P/Sales
     cols = ["P/L", "P/VP", "EV/EBITDA", "P/Sales"]
     tmp = df[cols].applymap(_safe)
-    inv = 1 - _minmax(tmp)  # menor => maior score
+    # normaliza coluna a coluna e inverte (menor = melhor)
+    inv = 1 - _minmax(tmp)
     return inv.mean(axis=1)
 
 def _score_profit(df: pd.DataFrame) -> pd.Series:
@@ -505,18 +516,21 @@ def _score_profit(df: pd.DataFrame) -> pd.Series:
     return _minmax(tmp).mean(axis=1)
 
 def _score_strength(df: pd.DataFrame) -> pd.Series:
-    # Melhor força = MENOR Debt/Equity, MAIOR Current/Quick
-    cols_low  = ["Debt/Equity"]
-    cols_high = ["Current Ratio", "Quick Ratio"]
-    part_low  = (1 - _minmax(df[cols_low].applymap(_safe))) if all(c in df for c in cols_low) else 0
-    part_high = (_minmax(df[cols_high].applymap(_safe)))       if all(c in df for c in cols_high) else 0
-    if isinstance(part_low, (int,float)) and isinstance(part_high, (int,float)):
-        return pd.Series([np.nan]*len(df), index=df.index)
-    if isinstance(part_low, (int,float)):  # só high
-        return part_high.mean(axis=1)
-    if isinstance(part_high, (int,float)): # só low
-        return part_low.mean(axis=1)
-    return pd.concat([part_low, part_high], axis=1).mean(axis=1)
+    cols_low  = ["Debt/Equity"]                  # menor melhor
+    cols_high = ["Current Ratio", "Quick Ratio"] # maior melhor
+
+    parts = []
+    if all(c in df.columns for c in cols_low):
+        tmp_low = df[cols_low].applymap(_safe)
+        parts.append(1 - _minmax(tmp_low))  # inverte para "menor=melhor"
+    if all(c in df.columns for c in cols_high):
+        tmp_high = df[cols_high].applymap(_safe)
+        parts.append(_minmax(tmp_high))
+
+    if not parts:
+        return pd.Series([np.nan] * len(df), index=df.index)
+
+    return pd.concat(parts, axis=1).mean(axis=1)
 
 def _score_momentum(px: pd.Series) -> dict:
     out = {}
@@ -556,6 +570,9 @@ def _fetch_peers_overview(tickers: list, period_prices: str = "2y"):
         except Exception:
             pass
     return pd.DataFrame(rows)
+    
+    st.session_state["empresa_info_df"] = df_info
+    st.session_state["empresa_px"] = px
 
 def etapa3_analise_avancada():
     st.markdown("### Etapa 3 — Análise avançada (scores e pares do setor)")
@@ -662,7 +679,13 @@ def etapa3_analise_avancada():
     # — Cards da empresa (destaques) —
     st.markdown("#### 🧾 Destaques (empresa selecionada)")
     c1, c2, c3, c4 = st.columns(4)
-    row_self = df_scores[df_scores["Ticker"]==ticker].iloc[0]
+    sel = df_scores[df_scores["Ticker"] == ticker]
+    if sel.empty:
+        st.warning("Não encontrei a linha da empresa nos scores. Mostrando apenas a tabela.")
+        st.dataframe(df_scores.sort_values("Score Total", ascending=False).reset_index(drop=True),
+                 use_container_width=True, height=420)
+        return
+    row_self = sel.iloc[0]
     with c1: st.metric("Score Value",     f"{row_self['Score Value']*100:,.0f} / 100")
     with c2: st.metric("Score Profit",    f"{row_self['Score Profit']*100:,.0f} / 100")
     with c3: st.metric("Score Strength",  f"{row_self['Score Strength']*100:,.0f} / 100")
