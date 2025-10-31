@@ -10,14 +10,19 @@
 from __future__ import annotations
 import streamlit as st
 from urllib.parse import urlencode
-
-# ============================================================
-# ETAPA 2 — Coleta e preparação de dados (yfinance)
-# ============================================================
 import numpy as np
 import yfinance as yf
 import plotly.graph_objects as go
 import plotly.express as px
+import re
+import pandas as pd
+import streamlit as st
+from typing import Tuple, Dict
+
+# ============================================================
+# ETAPA 2 — Coleta e preparação de dados (yfinance)
+# ============================================================
+
 
 TRADING_DAYS = {"1M": 21, "3M": 63, "6M": 126, "12M": 252}
 
@@ -213,11 +218,6 @@ def render_home():
 # MODO: ANÁLISE INDIVIDUAL
 # ETAPA 1 — Seleção da Empresa (por lista OU por setor→subsetor→segmento)
 # ============================================================
-
-import re
-import pandas as pd
-import streamlit as st
-from typing import Tuple, Dict
 
 # ---------- Utils de leitura e normalização ----------
 def _normalize_ticker(t: str) -> str:
@@ -614,7 +614,7 @@ def etapa3_analise_avancada():
     mserie = re.search(r"(\d{1,2})\.SA$", ticker)
     serie_sel = mserie.group(1) if mserie else "3"
 
-    # Monta TickerFinal para o Excel (usa TICKER se existir; senão CÓDIGO + série da escolhida)
+    # Monta TickerFinal para o Excel (usa TICKER se existir; senão CÓDIGO + a MESMA série da escolhida)
     def _build_tickerfinal(row):
         tk = str(row.get("Ticker", "")).strip()
         if tk:
@@ -624,9 +624,17 @@ def etapa3_analise_avancada():
 
     df_class["TickerFinal"] = df_class.apply(_build_tickerfinal, axis=1)
 
-    # Descobre o setor da EMPRESA escolhida olhando o Excel (TickerFinal)
+    # Descobre o setor pelo Excel (garante o mesmo idioma/estrutura da sua planilha)
     linha = df_class[df_class["TickerFinal"].str.upper() == ticker.upper()]
     setor_self = linha["Setor"].iloc[0] if not linha.empty else None
+
+    # Lista de pares do mesmo setor (do Excel)
+    if setor_self:
+        df_sector = df_class[df_class["Setor"] == setor_self].copy()
+        peers_list = [t for t in df_sector["TickerFinal"].dropna().unique().tolist() if isinstance(t, str)]
+        peers_list = [t for t in peers_list if t != ticker][:topN]  # remove o próprio e limita
+    else:
+        peers_list = []
 
     if msg:
         st.warning("Não foi possível ler a base setorial. Mostrando apenas a empresa selecionada.")
