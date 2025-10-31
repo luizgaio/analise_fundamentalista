@@ -475,6 +475,10 @@ def etapa2_coleta_dados():
     st.download_button("⬇️ Baixar CSV (overview da empresa)", data=csv_bytes,
                        file_name=f"{ticker}_overview.csv", mime="text/csv")
 
+# Guardar dados para a Etapa 3
+st.session_state["empresa_info_df"] = df_info
+st.session_state["empresa_px"] = px
+
 # ============================================================
 # ETAPA 3 — Análise avançada (cards + comparativo setorial)
 # ============================================================
@@ -571,9 +575,7 @@ def _fetch_peers_overview(tickers: list, period_prices: str = "2y"):
             pass
     return pd.DataFrame(rows)
     
-    st.session_state["empresa_info_df"] = df_info
-    st.session_state["empresa_px"] = px
-
+ 
 def etapa3_analise_avancada():
     st.markdown("### Etapa 3 — Análise avançada (scores e pares do setor)")
     ticker = st.session_state.get("empresa_escolhida")
@@ -607,6 +609,25 @@ def etapa3_analise_avancada():
 
     # — Encontrar pares (mesmo setor) a partir do Excel —
     df_class, msg = load_classif_setorial()
+    
+    # Série da ação escolhida (ex.: CMIG3.SA -> "3")
+    mserie = re.search(r"(\d{1,2})\.SA$", ticker)
+    serie_sel = mserie.group(1) if mserie else "3"
+
+    # Monta TickerFinal para o Excel (usa TICKER se existir; senão CÓDIGO + série da escolhida)
+    def _build_tickerfinal(row):
+        tk = str(row.get("Ticker", "")).strip()
+        if tk:
+            return _normalize_ticker(tk)
+        cod = str(row.get("Codigo", "")).strip().upper()
+        return _normalize_ticker(f"{cod}{serie_sel}.SA") if cod else ""
+
+    df_class["TickerFinal"] = df_class.apply(_build_tickerfinal, axis=1)
+
+    # Descobre o setor da EMPRESA escolhida olhando o Excel (TickerFinal)
+    linha = df_class[df_class["TickerFinal"].str.upper() == ticker.upper()]
+    setor_self = linha["Setor"].iloc[0] if not linha.empty else None
+
     if msg:
         st.warning("Não foi possível ler a base setorial. Mostrando apenas a empresa selecionada.")
         peers_list = []
@@ -624,13 +645,10 @@ def etapa3_analise_avancada():
                 setor_self = m["Setor"].iloc[0] if not m.empty else None
 
         if setor_self:
-            df_sector = df_class[df_class["Setor"]==setor_self].copy()
-            # coluna do ticker final usada na etapa 1; se não existir, tentamos Ticker
-            t_final = "TickerFinal" if "TickerFinal" in df_sector.columns else "Ticker"
-            if t_final in df_sector.columns:
-                peers_list = [t for t in df_sector[t_final].dropna().unique().tolist() if isinstance(t,str)]
-            else:
-                peers_list = []
+            df_sector = df_class[df_class["Setor"] == setor_self].copy()
+            peers_list = [t for t in df_sector["TickerFinal"].dropna().unique().tolist() if isinstance(t, str)]
+            # tira o próprio ticker e limita a quantidade
+            peers_list = [t for t in peers_list if t != ticker][:topN]
         else:
             peers_list = []
 
