@@ -143,66 +143,8 @@ def render_home():
 
 
 def render_single_layout():
-    st.subheader("🔎 Análise Individual — layout")
-    st.caption("Nesta etapa temos só o esqueleto visual. Em seguida plugaremos os dados.")
-
-    tcol = st.columns([1,1,1])
-    with tcol[0]:
-        st.selectbox("Empresa (ticker)", ["Selecione...", "PETR4.SA", "VALE3.SA", "ITUB4.SA"], index=0)
-    with tcol[1]:
-        st.selectbox("Período de preços", ["1y","2y","5y"], index=1)
-    with tcol[2]:
-        st.multiselect("Comparar com (opcional)", ["VALE3.SA","ITUB4.SA","WEGE3.SA"])
-
-    g1, g2, g3 = st.columns(3)
-    with g1: st.container(border=True).markdown("**Card** — Múltiplos (P/L, P/VP, EV/EBITDA, DY)")
-    with g2: st.container(border=True).markdown("**Card** — Rentabilidade (ROE, ROA, Margens)")
-    with g3: st.container(border=True).markdown("**Card** — Endividamento e Liquidez")
-
-    st.container(height=10)
-    st.container(border=True).markdown("**Gráfico placeholder** — Preço vs. Benchmark, retorno acumulado")
-    st.container(height=6)
-    st.container(border=True).markdown("**Tabela placeholder** — Histórico resumido de indicadores")
-
-
-def render_screener_layout():
-    st.subheader("📈 Screener / Ranking — layout")
-    st.caption("Esqueleto visual para filtros, pesos e ranking. Próxima etapa: dados.")
-
-    f1, f2, f3 = st.columns([1.2,1,1])
-    with f1:
-        st.multiselect("Setores", ["Energia","Financeiro","Materiais Básicos","Consumo"], help="Carregados do Excel quando integrarmos")
-    with f2:
-        st.slider("Peso: Value", 0.0, 1.0, 0.25, 0.05)
-    with f3:
-        st.slider("Peso: Quality", 0.0, 1.0, 0.25, 0.05)
-
-    f4, f5 = st.columns(2)
-    with f4:
-        st.slider("Peso: Momentum", 0.0, 1.0, 0.25, 0.05)
-    with f5:
-        st.slider("Peso: Crescimento", 0.0, 1.0, 0.25, 0.05)
-
-    st.container(border=True).markdown("**Tabela placeholder** — Ranking com colunas essenciais (Ticker, Setor, P/L, P/VP, EV/EBITDA, ROE, Momentum, Score)")
-    st.container(height=6)
-    st.container(border=True).markdown("**Gráfico placeholder** — Dispersão P/L × ROE (bolhas por Market Cap)")
-
-# ------------------------------
-# Roteamento simples por modo
-# ------------------------------
-if st.session_state["mode"] == "home":
-    render_home()
-elif st.session_state["mode"] == "single":
-    render_single_layout()
-elif st.session_state["mode"] == "screener":
-    render_screener_layout()
-
-# Rodapé
-st.markdown("""
-<hr class='soft'/>
-<small style='opacity:.7'>Elaborado pelo Prof. Luiz Eduardo Gaio (UNICAMP) para fins educacionais.</small>
-""", unsafe_allow_html=True)
-
+    st.subheader("🔎 Análise Individual — Etapa 1: Seleção da Empresa")
+    etapa1_selecao_empresa()  # <-- chama a etapa 1 aqui
 
 # ============================================================
 # MODO: ANÁLISE INDIVIDUAL
@@ -383,3 +325,45 @@ def etapa1_selecao_empresa():
         st.caption(f"**Estado atual**: {st.session_state['empresa_escolhida']} — {st.session_state.get('empresa_nome','')}")
     else:
         st.caption("**Estado atual**: nenhuma empresa confirmada.")
+
+
+def render_screener_layout():
+    st.subheader("📈 Screener / Ranking — layout")
+    st.caption("Esqueleto visual para filtros, pesos e ranking. Próxima etapa: dados.")
+
+    f1, f2, f3 = st.columns([1.2,1,1])
+    with f1:
+        st.multiselect("Setores", ["Energia","Financeiro","Materiais Básicos","Consumo"], help="Carregados do Excel quando integrarmos")
+    with f2:
+        st.slider("Peso: Value", 0.0, 1.0, 0.25, 0.05)
+    with f3:
+        st.slider("Peso: Quality", 0.0, 1.0, 0.25, 0.05)
+
+    f4, f5 = st.columns(2)
+    with f4:
+        st.slider("Peso: Momentum", 0.0, 1.0, 0.25, 0.05)
+    with f5:
+        st.slider("Peso: Crescimento", 0.0, 1.0, 0.25, 0.05)
+
+    st.container(border=True).markdown("**Tabela placeholder** — Ranking com colunas essenciais (Ticker, Setor, P/L, P/VP, EV/EBITDA, ROE, Momentum, Score)")
+    st.container(height=6)
+    st.container(border=True).markdown("**Gráfico placeholder** — Dispersão P/L × ROE (bolhas por Market Cap)")
+
+# ------------------------------
+# Roteamento simples por modo
+# ------------------------------
+if st.session_state["mode"] == "home":
+    render_home()
+elif st.session_state["mode"] == "single":
+    render_single_layout()
+elif st.session_state["mode"] == "screener":
+    render_screener_layout()
+
+# Rodapé
+st.markdown("""
+<hr class='soft'/>
+<small style='opacity:.7'>Elaborado pelo Prof. Luiz Eduardo Gaio (UNICAMP) para fins educacionais.</small>
+""", unsafe_allow_html=True)
+
+
+
