@@ -609,7 +609,7 @@ def etapa3_analise_avancada():
 
     # — Encontrar pares (mesmo setor) a partir do Excel —
     df_class, msg = load_classif_setorial()
-    
+
     # Série da ação escolhida (ex.: CMIG3.SA -> "3")
     mserie = re.search(r"(\d{1,2})\.SA$", ticker)
     serie_sel = mserie.group(1) if mserie else "3"
@@ -635,11 +635,12 @@ def etapa3_analise_avancada():
         peers_list = [t for t in peers_list if t != ticker][:topN]  # remove o próprio e limita
     else:
         peers_list = []
-    
+
+    # Diagnóstico visual
     with st.expander("🔍 Diagnóstico dos pares", expanded=False):
-    st.write("Setor (Excel):", setor_self)
-    st.write("Qtd. pares:", len(peers_list))
-    st.write(peers_list[:20])
+        st.write("Setor (Excel):", setor_self)
+        st.write("Qtd. pares:", len(peers_list))
+        st.write(peers_list[:20])
 
     # — Coleta dos pares —
     df_peers = _fetch_peers_overview(peers_list, period_prices=period_prices) if peers_list else pd.DataFrame()
