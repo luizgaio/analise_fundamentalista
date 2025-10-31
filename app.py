@@ -200,7 +200,7 @@ elif st.session_state["mode"] == "screener":
 # Rodapé
 st.markdown("""
 <hr class='soft'/>
-<small style='opacity:.7'>Feito com ❤️ para estudos — FCA/UNICAMP • Próximas etapas: conectar dados do Yahoo Finance, 
+<small style='opacity:.7'>Feito pelo Prof. Luiz Eduardo Gaio (UNICAMP) para fins educacionais, 
 ClassifSetorial.xlsx e cálculos de score.</small>
 """, unsafe_allow_html=True)
 
