@@ -209,11 +209,6 @@ def render_home():
     cálculo de scores e gráficos interativos.</small>
     """, unsafe_allow_html=True)
 
-
-def render_single_layout():
-    st.subheader("🔎 Análise Individual — Etapa 1: Seleção da Empresa")
-    etapa1_selecao_empresa()  # <-- chama a etapa 1 aqui
-
 # ============================================================
 # MODO: ANÁLISE INDIVIDUAL
 # ETAPA 1 — Seleção da Empresa (por lista OU por setor→subsetor→segmento)
