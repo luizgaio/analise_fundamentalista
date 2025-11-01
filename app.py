@@ -572,7 +572,7 @@ def etapa2_coleta_dados():
     # Overview (múltiplos, margens etc.)
     df_info = _build_overview_from_info(info)
     nome = df_info.at[0, "Empresa"] if not df_info.empty else ticker
-    st.session_state["empresa_long_name"] = nome  # <-- adiciona esta linha
+    st.session_state["empresa_nome_completo"] = nome
     setor = df_info.at[0, "Setor"] if not df_info.empty else None
 
     # Header com destaques
@@ -1331,10 +1331,11 @@ def etapa4_valuation():
                f"({lookback}). A fórmula de Ben Graham usa g={g_pct:.1f}% e Y={y_pct:.1f}%. Ajuste conforme seu cenário.")
 
 def render_company_header():
-    # nome principal = o que você já salva como "empresa_nome"
-    nome_curto   = st.session_state.get("empresa_nome", "") or "—"
-    # nome completo vem da etapa 2 (salvamos em empresa_long_name); se não houver, usa o curto
-    nome_completo = st.session_state.get("empresa_long_name", "") or nome_curto
+    # título principal (mantém como está hoje)
+    titulo = st.session_state.get("empresa_nome", st.session_state.get("empresa_escolhida", "—"))
+
+    # nome completo (mostra abaixo, se existir; senão reusa o título)
+    nome_completo = st.session_state.get("empresa_nome_completo") or titulo
 
     setor    = (st.session_state.get("empresa_setor") or "").upper()
     subsetor = (st.session_state.get("empresa_subsetor") or "").upper()
@@ -1342,15 +1343,16 @@ def render_company_header():
 
     st.markdown(f"""
 <div style="margin:0 0 1.2rem 0;">
-  <h1 style="margin:0; font-size:3rem; font-weight:800; letter-spacing:.5px;">{nome_curto.upper()}</h1>
+  <h1 style="margin:0; font-size:3rem; font-weight:800; letter-spacing:.5px;">{titulo.upper()}</h1>
   <h3 style="margin:.30rem 0 .80rem 0; font-size:1.20rem; font-weight:400; color:#cbd5e1;">{nome_completo}</h3>
   <div style="display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.25rem;">
-    {f'<span class="badge badge-sector">{setor}</span>' if setor else ''}
+    {f'<span class="badge badge-blue">{setor}</span>' if setor else ''}
     {f'<span class="badge badge-blue">{subsetor}</span>' if subsetor else ''}
     {f'<span class="badge badge-blue">{segmento}</span>' if segmento else ''}
   </div>
 </div>
 """, unsafe_allow_html=True)
+
 
 def render_single_with_tabs():
     render_company_header()
