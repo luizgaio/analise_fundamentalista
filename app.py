@@ -485,7 +485,14 @@ def etapa1_selecao_empresa():
         else:
             tickers = sorted(op["TickerFinal"].unique().tolist())
             ticker_escolhido = st.selectbox("Escolha o ticker", tickers, index=0)
-            empresa_nome = ticker_escolhido
+            # Após escolher o ticker_escolhido:
+            # tenta buscar o nome completo na planilha (coluna "Empresa")
+            try:
+                nome_df = df_class.loc[df_class["TickerFinal"] == ticker_escolhido, "Empresa"].dropna()
+                empresa_nome = nome_df.iloc[0] if not nome_df.empty else ticker_escolhido
+            except Exception:
+                empresa_nome = ticker_escolhido
+
 
     else:
         # seleção encadeada: setor -> subsetor -> segmento -> empresa
@@ -1342,16 +1349,20 @@ def render_company_header():
     segmento = (st.session_state.get("empresa_segmento") or "").upper()
 
     st.markdown(f"""
-<div style="margin:0 0 1.2rem 0;">
-  <h1 style="margin:0; font-size:3rem; font-weight:800; letter-spacing:.5px;">{titulo.upper()}</h1>
-  <h3 style="margin:.30rem 0 .80rem 0; font-size:1.20rem; font-weight:400; color:#cbd5e1;">{nome_completo}</h3>
-  <div style="display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.25rem;">
-    {f'<span class="badge badge-blue">{setor}</span>' if setor else ''}
-    {f'<span class="badge badge-blue">{subsetor}</span>' if subsetor else ''}
-    {f'<span class="badge badge-blue">{segmento}</span>' if segmento else ''}
-  </div>
-</div>
-""", unsafe_allow_html=True)
+    <div style="margin:0 0 1.2rem 0;">
+      <h1 style="margin:0; font-size:3rem; font-weight:800; letter-spacing:.5px;">
+        {nome_curto.upper()}
+      </h1>
+      <h3 style="margin:.3rem 0 .8rem 0; font-size:1.3rem; font-weight:400; color:#cbd5e1;">
+        {nome_completo}
+      </h3>
+      <div style="display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.25rem;">
+        {f'<span class="badge badge-blue">{setor.upper()}</span>' if setor else ''}
+        {f'<span class="badge badge-blue">{subsetor.upper()}</span>' if subsetor else ''}
+        {f'<span class="badge badge-blue">{segmento.upper()}</span>' if segmento else ''}
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def render_single_with_tabs():
