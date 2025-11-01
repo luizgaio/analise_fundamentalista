@@ -202,7 +202,7 @@ with col_title:
     if modo == "home":
         st.markdown("""
         <div style='text-align: center; margin-bottom: 1rem;'>
-            <h1 style='font-size:2.3rem; font-weight:700;'>Análise Fundamentalista de Ações</h1>
+            <h1 style='font-size:3rem; font-weight:700;'>Análise Fundamentalista de Ações</h1>
             <p style='color:#cbd5e1; font-size:1.05rem;'>
                 Escolha o modo de análise: <b>Individual</b> (uma empresa) ou <b>Screener</b> (ranking de várias).
             </p>
