@@ -1219,7 +1219,7 @@ def etapa4_valuation():
         g_pct = st.number_input("g (crescimento anual, %)", value=5.0, step=0.5, min_value=-10.0, max_value=50.0,
                                 help="Usado na fórmula de Ben Graham: EPS × (8,5 + 2g) × (4,4/Y)")
     with c3:
-        y_pct = st.number_input("Y (yield livre de risco, %)", value=10.0, step=0.5, min_value=1.0, max_value=30.0,
+        y_pct = st.number_input("Y (taxa livre de risco, %)", value=10.0, step=0.5, min_value=1.0, max_value=30.0,
                                 help="Usado na fórmula de Ben Graham; 4,4 é o yield base da fórmula.")
 
     # -------------------------
