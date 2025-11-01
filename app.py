@@ -168,14 +168,11 @@ CARD_CSS = """
   border-radius: var(--radius);
   padding: 18px 18px 14px 18px;
   transition: all .18s ease;
-  background: rgba(255,255,255,0.65);
+  background: #0b2545;              /* azul escuro */
 }
-[data-theme="dark"] .card { background: rgba(0,0,0,0.25); border-color: rgba(255,255,255,0.08); }
-.card:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,0.08); }
-.card h3 { margin: 0 0 8px 0; }
-.btn {
-  display:inline-block; padding:10px 14px; border-radius:12px; 
-  text-decoration:none; font-weight:600; border:1px solid transparent;
+[data-theme="dark"] .card {
+  background: #0b2545;              /* azul escuro no tema escuro também */
+  border-color: rgba(255,255,255,0.08);
 }
 .btn-primary { background:#2F6BFF; color:white; }
 .btn-ghost   { background:transparent; border-color:rgba(0,0,0,0.15); }
