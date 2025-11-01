@@ -1,5 +1,10 @@
 # =============================================================
-# Dashboard B3 — Layout moderno com design inspirado na imagem
+# Dashboard B3 — Layout inicial com dois modos de análise
+# Modo 1: Análise Individual (empresa)
+# Modo 2: Screener / Ranking
+# -------------------------------------------------------------
+# Este arquivo é um esqueleto organizado para evoluir o app.
+# Nas próximas etapas, plugaremos a coleta de dados, scores etc.
 # =============================================================
 
 from __future__ import annotations
@@ -15,205 +20,20 @@ import re
 import pandas as pd
 import streamlit as st
 from typing import Tuple, Dict
-from datetime import datetime, timedelta
 
-# ====== CONFIGURAÇÃO INICIAL ======
-st.set_page_config(
-    page_title="Stock Peer Analysis",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+def apply_dark_fig(fig):
+    fig.update_layout(
+        paper_bgcolor="#0f172a", plot_bgcolor="#0f172a",
+        font_color="#e2e8f0"
+    )
+    return fig
 
-# ====== NOVO STYLE - DESIGN MODERNO ======
-def inject_modern_styles():
-    st.markdown("""
-    <style>
-    /* ---------- TEMA PRINCIPAL ---------- */
-    :root {
-        --bg-primary: #0f172a;
-        --bg-secondary: #1e293b;
-        --bg-card: #334155;
-        --accent-blue: #3b82f6;
-        --accent-green: #10b981;
-        --accent-purple: #8b5cf6;
-        --text-primary: #f1f5f9;
-        --text-secondary: #cbd5e1;
-        --border: #475569;
-    }
-    
-    /* ---------- FUNDO GERAL ---------- */
-    .stApp, .main, .block-container {
-        background: var(--bg-primary) !important;
-        color: var(--text-primary) !important;
-    }
-    
-    /* ---------- HEADER MODERNO ---------- */
-    .main-header {
-        background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
-        padding: 2rem 0;
-        border-bottom: 1px solid var(--border);
-        margin-bottom: 2rem;
-    }
-    
-    .header-title {
-        font-size: 2.5rem !important;
-        font-weight: 700 !important;
-        background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 0.5rem !important;
-    }
-    
-    .header-subtitle {
-        color: var(--text-secondary) !important;
-        font-size: 1.1rem !important;
-        margin-bottom: 0 !important;
-    }
-    
-    /* ---------- CARDS MODERNOS ---------- */
-    .modern-card {
-        background: var(--bg-secondary) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 16px !important;
-        padding: 1.5rem !important;
-        transition: all 0.3s ease !important;
-        height: 100% !important;
-    }
-    
-    .modern-card:hover {
-        transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(0,0,0,0.3) !important;
-        border-color: var(--accent-blue) !important;
-    }
-    
-    .card-title {
-        font-size: 1.25rem !important;
-        font-weight: 600 !important;
-        color: var(--text-primary) !important;
-        margin-bottom: 1rem !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 0.5rem !important;
-    }
-    
-    /* ---------- BADGES ---------- */
-    .badge {
-        display: inline-block !important;
-        padding: 0.25rem 0.75rem !important;
-        border-radius: 20px !important;
-        font-size: 0.75rem !important;
-        font-weight: 600 !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.5px !important;
-    }
-    
-    .badge-blue {
-        background: rgba(59, 130, 246, 0.2) !important;
-        color: var(--accent-blue) !important;
-        border: 1px solid rgba(59, 130, 246, 0.3) !important;
-    }
-    
-    .badge-green {
-        background: rgba(16, 185, 129, 0.2) !important;
-        color: var(--accent-green) !important;
-        border: 1px solid rgba(16, 185, 129, 0.3) !important;
-    }
-    
-    /* ---------- BOTÕES MODERNOS ---------- */
-    .stButton > button {
-        background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)) !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 12px !important;
-        padding: 0.75rem 1.5rem !important;
-        font-weight: 600 !important;
-        transition: all 0.3s ease !important;
-        width: 100% !important;
-    }
-    
-    .stButton > button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3) !important;
-    }
-    
-    /* ---------- SIDEBAR MODERNA ---------- */
-    section[data-testid="stSidebar"] {
-        background: var(--bg-secondary) !important;
-        border-right: 1px solid var(--border) !important;
-    }
-    
-    .sidebar-title {
-        font-size: 1.5rem !important;
-        font-weight: 700 !important;
-        color: var(--text-primary) !important;
-        margin-bottom: 2rem !important;
-        text-align: center !important;
-    }
-    
-    /* ---------- METRIC CARDS ---------- */
-    .metric-card {
-        background: var(--bg-card) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 12px !important;
-        padding: 1rem !important;
-        text-align: center !important;
-    }
-    
-    .metric-value {
-        font-size: 1.5rem !important;
-        font-weight: 700 !important;
-        color: var(--text-primary) !important;
-        margin-bottom: 0.25rem !important;
-    }
-    
-    .metric-label {
-        font-size: 0.875rem !important;
-        color: var(--text-secondary) !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.5px !important;
-    }
-    
-    /* ---------- TABS MODERNAS ---------- */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 0.5rem !important;
-        background: transparent !important;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        background: var(--bg-secondary) !important;
-        border-radius: 12px 12px 0 0 !important;
-        padding: 0.75rem 1.5rem !important;
-        border: 1px solid var(--border) !important;
-        color: var(--text-secondary) !important;
-        transition: all 0.3s ease !important;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background: var(--accent-blue) !important;
-        color: white !important;
-        border-color: var(--accent-blue) !important;
-    }
-    
-    /* ---------- GRÁFICOS ---------- */
-    .plotly-chart-container {
-        border-radius: 16px !important;
-        overflow: hidden !important;
-        border: 1px solid var(--border) !important;
-    }
-    
-    /* ---------- RESPONSIVIDADE ---------- */
-    @media (max-width: 768px) {
-        .header-title {
-            font-size: 2rem !important;
-        }
-    }
-    </style>
-    """, unsafe_allow_html=True)
 
-inject_modern_styles()
+# ============================================================
+# ETAPA 2 — Coleta e preparação de dados (yfinance)
+# ============================================================
 
-# ====== FUNÇÕES EXISTENTES (mantidas do código original) ======
+
 TRADING_DAYS = {"1M": 21, "3M": 63, "6M": 126, "12M": 252}
 
 def _safe_pct(x):
@@ -237,10 +57,11 @@ def _momentum_from_series(px: pd.Series, days: int) -> float:
 def fetch_yf_info_and_prices(ticker: str, period_prices: str = "2y"):
     """Baixa info do yfinance e preços históricos do ativo e do IBOV (^BVSP)."""
     t = yf.Ticker(ticker)
-    info = t.info
+    info = t.info  # dicionário; pode faltar campos
     hist = t.history(period=period_prices, interval="1d")
     px = hist["Close"].dropna() if "Close" in hist else pd.Series(dtype=float)
 
+    # Benchmark (Ibovespa) para referência
     try:
         ibov = yf.Ticker("^BVSP").history(period=period_prices, interval="1d")
         ibov_px = ibov["Close"].dropna() if "Close" in ibov else pd.Series(dtype=float)
@@ -272,387 +93,1240 @@ def _build_overview_from_info(info: dict) -> pd.DataFrame:
     df = pd.DataFrame(rows)
     return df
 
-# ====== COMPONENTES DE UI MODERNOS ======
-def render_modern_header():
-    """Header moderno inspirado na imagem"""
+
+# ------------------------------
+# Configuração básica da página
+# ------------------------------
+st.set_page_config(
+    page_title="Análise Fundamentalista de Ações",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# ====== THEME / STYLES (dark consistente em toda a página) ======
+def inject_base_styles():
     st.markdown("""
-    <div class="main-header">
-        <div class="block-container">
-            <h1 class="header-title">Stock Peer Analysis</h1>
-            <p class="header-subtitle">Easily compare stocks against others in their peer group</p>
-        </div>
-    </div>
+    <style>
+      /* ---------- Fundos globais ---------- */
+      :root {
+        --bg: #0f172a;        /* slate-900 */
+        --bg-soft: #0b1220;   /* sidebar/caixas */
+        --text: #e2e8f0;      /* slate-200 */
+        --text-dim: #cbd5e1;  /* slate-300 */
+        --border: rgba(255,255,255,0.08);
+        --card: rgba(255,255,255,0.06);
+        --accent: #60a5fa;    /* azul */
+      }
+      html, body, .stApp, div[data-testid="stAppViewContainer"] {
+        background: var(--bg) !important; color: var(--text) !important;
+      }
+      .block-container { background: transparent !important; }
+
+      /* ---------- Sidebar ---------- */
+      section[data-testid="stSidebar"] {
+        background: var(--bg-soft) !important; color: var(--text) !important;
+        border-right: 1px solid var(--border);
+      }
+
+      /* ---------- Títulos e texto ---------- */
+      h1, h2, h3, h4, h5, h6 { color: var(--text) !important; }
+      p, label, span, div, small, code, kbd, pre { color: var(--text-dim); }
+      a { color: var(--accent); }
+
+      /* ---------- Cards / caixas padrão ---------- */
+      .stAlert, .stMarkdown div, .st-emotion-cache-ocqkz7, .st-emotion-cache-1y4p8pa,
+      .st-emotion-cache-16idsys, .st-emotion-cache-7ym5gk, .st-emotion-cache-1wmy9hl {
+        background: var(--card) !important; color: var(--text) !important;
+        border: 1px solid var(--border) !important; border-radius: 14px;
+      }
+
+      /* ---------- DataFrame/Tabela ---------- */
+      .stDataFrame, .stTable {
+        background: var(--bg-soft) !important; color: var(--text) !important;
+        border: 1px solid var(--border) !important; border-radius: 10px;
+      }
+      .stDataFrame thead, .stTable thead { background: var(--bg) !important; color: var(--text) !important; }
+      .stDataFrame tbody, .stTable tbody { color: var(--text) !important; }
+      .stDataFrame [data-testid="stHorizontalBlock"] { background: transparent !important; }
+
+      /* ---------- Expanders / tabs ---------- */
+      details, .st-expander, .stTabs [data-baseweb="tab-list"] {
+        background: var(--bg-soft) !important; color: var(--text) !important;
+        border: 1px solid var(--border) !important; border-radius: 12px;
+      }
+      .stTabs [data-baseweb="tab"] { color: var(--text-dim) !important; }
+      .stTabs [aria-selected="true"] { color: var(--text) !important; border-color: var(--accent) !important; }
+
+      /* ---------- Inputs (select/multiselect/number/slider) ---------- */
+      /* BaseWeb (usado pelo Streamlit) */
+      div[data-baseweb="select"], div[role="listbox"], input, textarea {
+        color: var(--text) !important; background: var(--bg-soft) !important;
+      }
+      div[role="listbox"] div { color: var(--text) !important; }
+      .stNumberInput, .stTextInput, .stSelectbox, .stMultiSelect, .stDateInput {
+        color: var(--text) !important;
+      }
+      .st-bb, .st-c2, .st-bz { border-color: var(--border) !important; } /* bordas de inputs */
+
+      /* Radio/checkbox labels */
+      label[data-baseweb="radio"], label[data-baseweb="checkbox"] { color: var(--text) !important; }
+
+      /* ---------- Metrics ---------- */
+      div[data-testid="stMetric"] { background: var(--card) !important; border: 1px solid var(--border); border-radius: 12px; padding: 8px; }
+      div[data-testid="stMetricValue"] { color: var(--text) !important; }
+      div[data-testid="stMetricDelta"] { color: var(--text-dim) !important; }
+
+      /* ---------- Botões ---------- */
+      button[kind="secondary"], .stButton>button {
+        color: var(--text) !important; background: var(--bg-soft) !important; border: 1px solid var(--border) !important;
+      }
+
+      /* ---------- Markdown tabelas / code ---------- */
+      .markdown-text-container table { background: var(--bg-soft) !important; }
+      pre, code { background: #0b1020 !important; color: var(--text) !important; }
+
+      /* ---------- Tooltips / help ---------- */
+      .stTooltipContent { background: var(--bg-soft) !important; color: var(--text) !important; }
+
+      /* ---------- Remove qualquer faixa branca sobrando ---------- */
+      .stApp [class^="viewerBadge"], .stApp [class*="viewerBadge"] { background: transparent !important; }
+    </style>
     """, unsafe_allow_html=True)
 
-def render_metric_card(value: str, label: str, delta: str = None):
-    """Componente de card de métrica moderno"""
-    delta_html = f'<div style="color: #10b981; font-size: 0.875rem; font-weight: 600;">{delta}</div>' if delta else ""
-    
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-value">{value}</div>
-        {delta_html}
-        <div class="metric-label">{label}</div>
-    </div>
-    """, unsafe_allow_html=True)
+inject_base_styles()
 
-def render_feature_card(icon: str, title: str, description: str, badge: str = None, badge_color: str = "blue"):
-    """Card de feature moderno"""
-    badge_html = f'<span class="badge badge-{badge_color}">{badge}</span>' if badge else ""
-    
-    st.markdown(f"""
-    <div class="modern-card">
-        {badge_html}
-        <div class="card-title">
-            <span>{icon}</span>
-            {title}
-        </div>
-        <p style="color: var(--text-secondary); line-height: 1.6; margin-bottom: 1.5rem;">{description}</p>
-    </div>
-    """, unsafe_allow_html=True)
 
-# ====== LAYOUT DA PÁGINA INICIAL ======
-def render_modern_home():
-    """Página inicial moderna"""
-    render_modern_header()
-    
-    # Cards de features
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        render_feature_card(
-            "🔎", 
-            "Individual Analysis", 
-            "Deep dive into a single company: multiples, profitability, debt, price history and sector comparisons.",
-            "Mode 1", "blue"
-        )
-    
-    with col2:
-        render_feature_card(
-            "📈", 
-            "Screener / Ranking", 
-            "Build company rankings by multiples and quality. Sector filters, custom weights and CSV export.",
-            "Mode 2", "green"
-        )
-    
-    st.markdown("---")
-    
-    # Seção de análise rápida (inspirada na imagem)
-    st.markdown("""
-    <div style="margin-bottom: 2rem;">
-        <h2 style="color: var(--text-primary); margin-bottom: 1rem;">Quick Stock Analysis</h2>
-        <p style="color: var(--text-secondary);">Get instant insights for any stock symbol</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Input rápido para análise
-    quick_col1, quick_col2, quick_col3 = st.columns([2, 1, 1])
-    
-    with quick_col1:
-        quick_ticker = st.text_input("Enter stock symbol", placeholder="e.g., PETR4.SA, VALE3.SA...")
-    
-    with quick_col2:
-        time_horizon = st.selectbox("Time horizon", ["1M", "3M", "6M", "1Y", "5Y"])
-    
-    with quick_col3:
-        st.markdown("<br>", unsafe_allow_html=True)
-        analyze_btn = st.button("Analyze Stock", type="primary")
-    
-    if analyze_btn and quick_ticker:
-        st.session_state["mode"] = "single"
-        st.session_state["quick_ticker"] = quick_ticker
-        st.rerun()
 
-# ====== LAYOUT DE ANÁLISE INDIVIDUAL MODERNO ======
-def render_modern_single_analysis():
-    """Layout moderno para análise individual"""
-    
-    # Header da análise
-    col_header1, col_header2 = st.columns([3, 1])
-    
-    with col_header1:
-        st.markdown("""
-        <div style="margin-bottom: 2rem;">
-            <h1 style="color: var(--text-primary); margin-bottom: 0.5rem;">Stock Analysis</h1>
-            <p style="color: var(--text-secondary);">Comprehensive analysis and peer comparison</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col_header2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("← Back to Home", use_container_width=True):
-            st.session_state["mode"] = "home"
-            st.rerun()
-    
-    # Seção de seleção de ações
-    st.markdown("""
-    <div class="modern-card">
-        <div class="card-title">📊 Stock Selection</div>
-    """, unsafe_allow_html=True)
-    
-    col_select1, col_select2, col_select3 = st.columns(3)
-    
-    with col_select1:
-        main_stock = st.text_input("Main Stock", value=st.session_state.get("quick_ticker", "PETR4.SA"), 
-                                 placeholder="e.g., PETR4.SA")
-    
-    with col_select2:
-        peer_stocks = st.multiselect(
-            "Peer Stocks", 
-            ["VALE3.SA", "ITUB4.SA", "BBDC4.SA", "WEGE3.SA", "MGLU3.SA"],
-            default=["VALE3.SA", "ITUB4.SA"]
-        )
-    
-    with col_select3:
-        time_horizon = st.selectbox(
-            "Time Horizon",
-            ["1 Month", "3 Months", "6 Months", "1 Year", "5 Years", "10 Years", "20 Years"],
-            index=3
-        )
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-    
-    # Métricas principais
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("""
-    <div style="margin-bottom: 1rem;">
-        <h3 style="color: var(--text-primary);">Performance Overview</h3>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Grid de métricas
-    metric_cols = st.columns(6)
-    
-    with metric_cols[0]:
-        render_metric_card("+23.5%", "1M Return", "↑ 2.3%")
-    
-    with metric_cols[1]:
-        render_metric_card("+45.2%", "3M Return", "↑ 5.1%")
-    
-    with metric_cols[2]:
-        render_metric_card("+67.8%", "6M Return", "↑ 8.2%")
-    
-    with metric_cols[3]:
-        render_metric_card("+125.3%", "1Y Return", "↑ 15.6%")
-    
-    with metric_cols[4]:
-        render_metric_card("12.4", "P/L Ratio", "Sector: 15.2")
-    
-    with metric_cols[5]:
-        render_metric_card("2.1x", "P/VP", "Sector: 1.8x")
-    
-    # Gráficos e análise
-    st.markdown("<br>", unsafe_allow_html=True)
-    chart_col1, chart_col2 = st.columns([2, 1])
-    
-    with chart_col1:
-        st.markdown("""
-        <div class="modern-card">
-            <div class="card-title">📈 Normalized Price Comparison</div>
-        """, unsafe_allow_html=True)
-        
-        # Gráfico placeholder (será substituído pelo gráfico real)
-        fig = go.Figure()
-        
-        # Dados de exemplo para o gráfico
-        dates = pd.date_range(start='2024-01-01', end='2024-10-01', freq='M')
-        stocks = {
-            'PETR4.SA': [100, 105, 110, 115, 120, 125, 130, 135, 140, 145],
-            'VALE3.SA': [100, 102, 108, 112, 118, 122, 128, 132, 138, 142],
-            'ITUB4.SA': [100, 98, 101, 104, 107, 110, 113, 116, 119, 122]
-        }
-        
-        for stock, prices in stocks.items():
-            fig.add_trace(go.Scatter(
-                x=dates, 
-                y=prices, 
-                mode='lines',
-                name=stock,
-                line=dict(width=3)
-            ))
-        
-        fig.update_layout(
-            height=400,
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='#f1f5f9'),
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1
-            ),
-            margin=dict(l=20, r=20, t=40, b=20)
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-    
-    with chart_col2:
-        st.markdown("""
-        <div class="modern-card">
-            <div class="card-title">🏆 Best Performing Stock</div>
-            <div style="text-align: center; padding: 2rem 1rem;">
-                <div style="font-size: 3rem; margin-bottom: 1rem;">🥇</div>
-                <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-green); margin-bottom: 0.5rem;">PETR4.SA</div>
-                <div style="font-size: 1.25rem; color: var(--text-primary);">+145%</div>
-                <div style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.5rem;">1 Year Return</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div class="modern-card">
-            <div class="card-title">📊 Peer Comparison</div>
-            <div style="margin-top: 1rem;">
-        """, unsafe_allow_html=True)
-        
-        # Tabela de comparação simples
-        comparison_data = {
-            'Stock': ['PETR4.SA', 'VALE3.SA', 'ITUB4.SA'],
-            'Return': ['+145%', '+142%', '+122%'],
-            'P/L': ['12.4', '14.2', '10.8'],
-            'Rating': ['A', 'A-', 'B+']
-        }
-        
-        df_comparison = pd.DataFrame(comparison_data)
-        st.dataframe(df_comparison, use_container_width=True, hide_index=True)
-        
-        st.markdown("</div></div>", unsafe_allow_html=True)
-
-# ====== LAYOUT DO SCREENER MODERNO ======
-def render_modern_screener():
-    """Layout moderno para screener"""
-    
-    # Header
-    col_header1, col_header2 = st.columns([3, 1])
-    
-    with col_header1:
-        st.markdown("""
-        <div style="margin-bottom: 2rem;">
-            <h1 style="color: var(--text-primary); margin-bottom: 0.5rem;">Stock Screener</h1>
-            <p style="color: var(--text-secondary);">Filter and rank stocks by multiple criteria</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col_header2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("← Back to Home", use_container_width=True):
-            st.session_state["mode"] = "home"
-            st.rerun()
-    
-    # Filtros
-    st.markdown("""
-    <div class="modern-card">
-        <div class="card-title">⚙️ Screening Criteria</div>
-    """, unsafe_allow_html=True)
-    
-    filter_col1, filter_col2, filter_col3 = st.columns(3)
-    
-    with filter_col1:
-        st.multiselect("Sectors", ["Energy", "Financial", "Materials", "Consumption", "Technology"])
-        st.slider("Max P/L Ratio", 0.0, 50.0, 25.0, 1.0)
-    
-    with filter_col2:
-        st.slider("Min ROE %", 0.0, 50.0, 10.0, 1.0)
-        st.slider("Max Debt/Equity", 0.0, 5.0, 2.0, 0.1)
-    
-    with filter_col3:
-        st.slider("Weight: Value", 0.0, 1.0, 0.3, 0.05)
-        st.slider("Weight: Quality", 0.0, 1.0, 0.3, 0.05)
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-    
-    # Resultados
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("""
-    <div class="modern-card">
-        <div class="card-title">📋 Screening Results</div>
-    """, unsafe_allow_html=True)
-    
-    # Tabela de resultados (placeholder)
-    results_data = {
-        'Rank': [1, 2, 3, 4, 5],
-        'Ticker': ['PETR4.SA', 'VALE3.SA', 'ITUB4.SA', 'WEGE3.SA', 'BBDC4.SA'],
-        'Sector': ['Energy', 'Materials', 'Financial', 'Industrial', 'Financial'],
-        'P/L': [12.4, 14.2, 10.8, 25.3, 8.7],
-        'ROE %': [18.5, 22.1, 15.3, 28.7, 12.4],
-        'Score': [88, 85, 82, 79, 76],
-        'Rating': ['A', 'A-', 'B+', 'B+', 'B']
-    }
-    
-    df_results = pd.DataFrame(results_data)
-    st.dataframe(df_results, use_container_width=True, hide_index=True)
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# ====== NAVEGAÇÃO E ROTEAMENTO ======
-MODES = {"home": "Home", "single": "Individual Analysis", "screener": "Screener"}
+# ------------------------------
+# Utils de navegação
+# ------------------------------
+MODES = {"home": "Início", "single": "Análise Individual", "screener": "Screener"}
 
 def set_mode(mode: str):
     st.session_state["mode"] = mode
+    st.experimental_set_query_params(**{"mode": mode})
 
-# Sidebar moderna
-with st.sidebar:
+# Query param → carrega modo ao abrir o app
+params = st.experimental_get_query_params()
+mode_param = params.get("mode", ["home"]) [0]
+if "mode" not in st.session_state:
+    st.session_state["mode"] = mode_param if mode_param in MODES else "home"
+
+# ------------------------------
+# Estilos
+# ------------------------------
+CARD_CSS = """
+<style>
+:root {
+  --radius: 18px;
+}
+.card {
+  border: 1px solid rgba(0,0,0,0.07);
+  border-radius: var(--radius);
+  padding: 18px 18px 14px 18px;
+  transition: all .18s ease;
+  background: rgba(255,255,255,0.65);
+}
+[data-theme="dark"] .card { background: rgba(0,0,0,0.25); border-color: rgba(255,255,255,0.08); }
+.card:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,0.08); }
+.card h3 { margin: 0 0 8px 0; }
+.btn {
+  display:inline-block; padding:10px 14px; border-radius:12px; 
+  text-decoration:none; font-weight:600; border:1px solid transparent;
+}
+.btn-primary { background:#2F6BFF; color:white; }
+.btn-ghost   { background:transparent; border-color:rgba(0,0,0,0.15); }
+[data-theme="dark"] .btn-ghost { border-color:rgba(255,255,255,0.2); color:#fff; }
+.badge { display:inline-block; padding:4px 10px; border-radius:999px; font-size:12px; opacity:.9; }
+.badge-green { background:rgba(16,185,129,.15); color:#0F9D58; }
+.badge-blue  { background:rgba(47,107,255,.12); color:#2F6BFF; }
+hr.soft { border:none; border-top:1px solid rgba(0,0,0,0.08); margin:18px 0; }
+</style>
+"""
+st.markdown(CARD_CSS, unsafe_allow_html=True)
+
+# ------------------------------
+# Cabeçalho
+# ------------------------------
+col_logo, col_title = st.columns([0.08, 0.92])
+with col_logo:
+    st.markdown("<div style='font-size:44px'>📊</div>", unsafe_allow_html=True)
+with col_title:
     st.markdown("""
-    <div class="sidebar-title">Stock Analysis</div>
+    <h1 style='margin-bottom:0'>Análise Fundamentalista de Ações</h1>
+    <p style='margin-top:6px;opacity:.8'>Escolha o modo de análise: <b>Individual</b> (uma empresa) ou <b>Screener</b> (ranking de várias).
+    </p>
     """, unsafe_allow_html=True)
+
+# ------------------------------
+# Sidebar de navegação
+# ------------------------------
+with st.sidebar:
+    st.markdown("### Navegação")
+    sel = st.radio("", [MODES[m] for m in ("home","single","screener")], index=(0 if st.session_state["mode"]=="home" else 1 if st.session_state["mode"]=="single" else 2))
+    # converte label → chave
+    rev = {v:k for k,v in MODES.items()}
+    set_mode(rev[sel])
+
+    st.markdown("---")
+    st.markdown("**Atalhos**")
+    cols = st.columns(2)
+    if cols[0].button("🏠 Início", use_container_width=True):
+        set_mode("home")
+    if cols[1].button("🔄 Limpar sessão", use_container_width=True):
+        st.session_state.clear()
+        set_mode("home")
+
+# ------------------------------
+# Páginas
+# ------------------------------
+
+def render_home():
+    st.markdown("---")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown(
+            """
+            <div class='card'>
+              <span class='badge badge-blue'>Modo 1</span>
+              <h3>🔎 Análise Individual</h3>
+              <p>Estude profundamente uma empresa: múltiplos, rentabilidade, endividamento, histórico de preços e comparativos de setor.</p>
+              <a class='btn btn-primary' href='?""" + urlencode({"mode":"single"}) + """'>Começar</a>
+              <a class='btn btn-ghost' href='?""" + urlencode({"mode":"single"}) + """'>Ver layout</a>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with c2:
+        st.markdown(
+            """
+            <div class='card'>
+              <span class='badge badge-green'>Modo 2</span>
+              <h3>📈 Screener / Ranking</h3>
+              <p>Monte um ranking de empresas por múltiplos e qualidade. Filtros por setor, pesos customizados e exportação para CSV.</p>
+              <a class='btn btn-primary' href='?""" + urlencode({"mode":"screener"}) + """'>Começar</a>
+              <a class='btn btn-ghost' href='?""" + urlencode({"mode":"screener"}) + """'>Ver layout</a>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("""
+    <hr class='soft'/>
+    <small style='opacity:.7'>Versão layout • Próximas etapas: conexão com dados (yfinance), seleção por setor (ClassifSetorial.xlsx), 
+    cálculo de scores e gráficos interativos.</small>
+    """, unsafe_allow_html=True)
+
+# ============================================================
+# MODO: ANÁLISE INDIVIDUAL
+# Visão  (por lista OU por setor→subsetor→segmento)
+# ============================================================
+
+# ---------- Utils de leitura e normalização ----------
+def _normalize_ticker(t: str) -> str:
+    t = (t or "").strip().upper()
+    if not t:
+        return ""
+    if t.endswith(".SA"):
+        return t
+    # padrão B3: letras + classe numérica (3, 4, 11)
+    if re.match(r"^[A-Z]{3,6}\d{1,2}$", t):
+        return f"{t}.SA"
+    return t
+
+@st.cache_data(show_spinner=False)
+def load_classif_setorial(path: str = "ClassifSetorial.xlsx") -> Tuple[pd.DataFrame, str | None]:
+    """
+    Espera colunas (qualquer caixa/acento): SETOR, SUBSETOR, SEGMENTO, NOME DE PREGÃO, CÓDIGO e/ou TICKER.
+    Se TICKER não existir, monta a partir de CÓDIGO + série escolhida na UI (definida fora desta função).
+    Aqui apenas padronizamos nomes; a montagem final do ticker fica em etapa1_selecao_empresa().
+    """
+    try:
+        df = pd.read_excel(path, engine="openpyxl")
+    except FileNotFoundError:
+        return pd.DataFrame(), "Arquivo 'ClassifSetorial.xlsx' não encontrado na raiz do repositório."
+    except Exception as e:
+        return pd.DataFrame(), f"Falha ao abrir o Excel: {e}"
+
+    # padroniza nomes de colunas para comparação
+    up = {c: c.strip().upper() for c in df.columns}
+    df.rename(columns=up, inplace=True)
+
+    # mapeia para nomes-alvo
+    colmap: Dict[str, str] = {}
+    for srcs, dst in [
+        (["SETOR"], "Setor"),
+        (["SUBSETOR"], "Subsetor"),
+        (["SEGMENTO"], "Segmento"),
+        (["NOME DE PREGÃO", "NOME PREGÃO", "NOME PREGAO", "NOME DE PREGAO"], "Empresa"),
+        (["TICKER"], "Ticker"),
+        (["CÓDIGO", "CODIGO", "CÓDIGO DE NEGOCIAÇÃO", "CODIGO DE NEGOCIACAO", "CODNEG"], "Codigo"),
+    ]:
+        for s in srcs:
+            if s in df.columns:
+                colmap[s] = dst
+                break
+    df.rename(columns=colmap, inplace=True)
+
+    # checagem mínima
+    if "Setor" not in df.columns:
+        return pd.DataFrame(), "A planilha precisa ter a coluna 'SETOR'."
+    if ("Ticker" not in df.columns) and ("Codigo" not in df.columns):
+        return pd.DataFrame(), "A planilha precisa ter 'TICKER' ou 'CÓDIGO'."
+
+    # normalizações leves
+    for c in ["Setor", "Subsetor", "Segmento", "Empresa", "Ticker", "Codigo"]:
+        if c in df.columns:
+            df[c] = df[c].astype(str).str.strip()
+
+    # remove linhas sem setor
+    df = df[df["Setor"].notna() & (df["Setor"] != "")].copy().reset_index(drop=True)
+    return df, None
+
+
+def etapa1_selecao_empresa():
+    st.markdown("### Seleção da Empresa")
+
+    # 1) Carrega base setorial
+    df_class, msg = load_classif_setorial()
+    if msg:
+        st.warning(msg)
+        st.stop()
+
+    # 2) Série padrão (somente usada se Ticker não existir na planilha)
+    col_ser = st.columns([1, 3])[0]
+    serie_padrao = col_ser.selectbox("Escolha o tipo de Ação", ["3", "4", "5", "6", "11"], index=0,
+                                     help="3 para ON; 4, 5 e 6 para PN e 11 para Unit. Será usado para montar PETR + 4 → PETR4.SA.")
+
+    # 3) Monta coluna TickerFinal (preferência por Ticker; senão Codigo + série)
+    def _build_ticker(row: pd.Series) -> str:
+        if "Ticker" in row and str(row["Ticker"]).strip():
+            return _normalize_ticker(str(row["Ticker"]))
+        cod = str(row.get("Codigo", "")).strip().upper()
+        if not cod:
+            return ""
+        return _normalize_ticker(f"{cod}{serie_padrao}.SA")
+
+    df_class["TickerFinal"] = df_class.apply(_build_ticker, axis=1)
+    df_class = df_class[df_class["TickerFinal"] != ""].copy().reset_index(drop=True)
+
+    # 4) UI: modo de seleção
+    modo = st.radio("Como deseja selecionar a empresa?",
+                    ["Por lista de tickers", "Por Setor → Subsetor → Segmento → Empresa"],
+                    horizontal=True)
+
+    empresa_nome = None
+    ticker_escolhido = None
+
+    if modo == "Por lista de tickers":
+        # lista ordenada por Empresa (quando existir) ou por ticker
+        op = df_class.copy()
+        if "Empresa" in op.columns and op["Empresa"].notna().any():
+            op["label"] = op["TickerFinal"] + " — " + op["Empresa"].astype(str)
+            op = op.sort_values(["Empresa", "TickerFinal"])
+            labels = op["label"].tolist()
+            map_label_ticker = dict(zip(op["label"], op["TickerFinal"]))
+            sel = st.selectbox("Escolha a empresa (lista completa)", labels, index=0)
+            ticker_escolhido = map_label_ticker.get(sel)
+            empresa_nome = op.loc[op["label"] == sel, "Empresa"].iloc[0]
+        else:
+            tickers = sorted(op["TickerFinal"].unique().tolist())
+            ticker_escolhido = st.selectbox("Escolha o ticker", tickers, index=0)
+            empresa_nome = ticker_escolhido
+
+    else:
+        # seleção encadeada: setor -> subsetor -> segmento -> empresa
+        c1, c2, c3, c4 = st.columns([1.1, 1.1, 1.1, 1.4])
+
+        # Setor
+        setores = sorted(df_class["Setor"].dropna().unique().tolist())
+        setor_sel = c1.selectbox("Setor", ["—"] + setores, index=0)
+        df_f = df_class.copy()
+        if setor_sel != "—":
+            df_f = df_f[df_f["Setor"] == setor_sel]
+
+        # Subsetor
+        subsetores = sorted(df_f["Subsetor"].dropna().unique().tolist()) if "Subsetor" in df_f.columns else []
+        subsetor_sel = c2.selectbox("Subsetor", ["—"] + subsetores, index=0)
+        if subsetor_sel != "—":
+            df_f = df_f[df_f["Subsetor"] == subsetor_sel]
+
+        # Segmento
+        segmentos = sorted(df_f["Segmento"].dropna().unique().tolist()) if "Segmento" in df_f.columns else []
+        segmento_sel = c3.selectbox("Segmento", ["—"] + segmentos, index=0)
+        if segmento_sel != "—":
+            df_f = df_f[df_f["Segmento"] == segmento_sel]
+
+        # Empresa (label = TickerFinal — Empresa)
+        if "Empresa" in df_f.columns and df_f["Empresa"].notna().any():
+            op = df_f[["TickerFinal", "Empresa"]].drop_duplicates().copy()
+            op["label"] = op["TickerFinal"] + " — " + op["Empresa"].astype(str)
+            op = op.sort_values("Empresa")
+            labels = ["—"] + op["label"].tolist()
+            escolha = c4.selectbox("Empresa", labels, index=0)
+            if escolha != "—":
+                ticker_escolhido = op.loc[op["label"] == escolha, "TickerFinal"].iloc[0]
+                empresa_nome = op.loc[op["label"] == escolha, "Empresa"].iloc[0]
+        else:
+            # fallback: só ticker
+            op = sorted(df_f["TickerFinal"].drop_duplicates().tolist())
+            escolha = c4.selectbox("Empresa (por ticker)", ["—"] + op, index=0)
+            if escolha != "—":
+                ticker_escolhido = escolha
+                empresa_nome = escolha
+
+    st.markdown("---")
+    # 5) Confirmar e salvar no estado
+    if ticker_escolhido:
+        st.success(f"Selecionado: **{ticker_escolhido}**" + (f" ({empresa_nome})" if empresa_nome else ""))
+        if st.button("✅ Confirmar empresa e avançar para a Etapa 2", type="primary"):
+            st.session_state["empresa_escolhida"] = ticker_escolhido
+            st.session_state["empresa_nome"] = empresa_nome or ticker_escolhido
+            st.toast("Empresa selecionada com sucesso!", icon="✅")
+    else:
+        st.info("Selecione uma empresa para continuar.")
+
+    # Rodapé da etapa
+    if "empresa_escolhida" in st.session_state:
+        st.caption(f"**Estado atual**: {st.session_state['empresa_escolhida']} — {st.session_state.get('empresa_nome','')}")
+    else:
+        st.caption("**Estado atual**: nenhuma empresa confirmada.")
+
+def etapa2_coleta_dados():
+    st.markdown("### Visão geral")
+    ticker = st.session_state.get("empresa_escolhida")
+    if not ticker:
+        st.info("Selecione uma empresa na Etapa 1 para continuar.")
+        return
+
+    # Parâmetros
+    cols = st.columns([1,1,1.2])
+    with cols[0]:
+        period_prices = st.selectbox("Período de preços", ["1y","2y","5y"], index=1)
+    with cols[1]:
+        show_benchmark = st.toggle("Comparar com Ibovespa", value=True, help="Usa ^BVSP como benchmark.")
+    with cols[2]:
+        st.caption("Indicadores podem vir incompletos do Yahoo. Campos ausentes aparecem como NaN.")
+
+    # Coleta
+    with st.spinner(f"Baixando dados de {ticker}…"):
+        info, px, ibov_px = fetch_yf_info_and_prices(ticker, period_prices=period_prices)
+
+    if (px is None) or px.empty:
+        st.error("Não foi possível obter preços do ativo selecionado.")
+        return
+
+    # Overview (múltiplos, margens etc.)
+    df_info = _build_overview_from_info(info)
+    nome = df_info.at[0, "Empresa"] if not df_info.empty else ticker
+    setor = df_info.at[0, "Setor"] if not df_info.empty else None
+
+    # Header com destaques
+    h1, h2, h3, h4 = st.columns(4)
+    with h1: st.metric("Empresa", nome if nome else ticker)
+    with h2: st.metric("Setor", setor or "—")
+    with h3: st.metric("P/L", f'{df_info.at[0,"P/L"]:.2f}' if not np.isnan(df_info.at[0,"P/L"]) else "—")
+    with h4: st.metric("ROE (%)", f'{df_info.at[0,"ROE (%)"]:.1f}' if not np.isnan(df_info.at[0,"ROE (%)"]) else "—")
+
+    # Momentum
+    ret_1m = _momentum_from_series(px, TRADING_DAYS["1M"])
+    ret_3m = _momentum_from_series(px, TRADING_DAYS["3M"])
+    ret_6m = _momentum_from_series(px, TRADING_DAYS["6M"])
+    ret_12m = _momentum_from_series(px, TRADING_DAYS["12M"])
+
+    m1, m2, m3, m4 = st.columns(4)
+    with m1: st.metric("Retorno 1M",  f"{ret_1m*100:,.1f}%" if not np.isnan(ret_1m) else "—")
+    with m2: st.metric("Retorno 3M",  f"{ret_3m*100:,.1f}%" if not np.isnan(ret_3m) else "—")
+    with m3: st.metric("Retorno 6M",  f"{ret_6m*100:,.1f}%" if not np.isnan(ret_6m) else "—")
+    with m4: st.metric("Retorno 12M", f"{ret_12m*100:,.1f}%" if not np.isnan(ret_12m) else "—")
+
+    st.markdown("---")
+
+    # Gráfico de preço (com benchmark opcional, normalizado = 100)
+    def _normalize_100(s: pd.Series) -> pd.Series:
+        if s.empty:
+            return s
+        base = s.iloc[0]
+        return s / base * 100.0
+
+    base_df = pd.DataFrame({"Data": px.index, ticker: _normalize_100(px).values})
+    if show_benchmark and ibov_px is not None and not ibov_px.empty:
+        # Alinha datas
+        _tmp = pd.DataFrame({"Data": ibov_px.index, "IBOV": _normalize_100(ibov_px).values})
+        base_df = base_df.merge(_tmp, on="Data", how="left")
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=base_df["Data"], y=base_df[ticker], mode="lines", name=ticker))
+    if "IBOV" in base_df.columns:
+        fig.add_trace(go.Scatter(x=base_df["Data"], y=base_df["IBOV"], mode="lines", name="IBOV (100=base)"))
+    fig.update_layout(
+        title=f"Evolução normalizada (100 = início) — {ticker}",
+        xaxis_title="Data", yaxis_title="Índice (base 100)", height=420, legend_title="Séries"
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Tabela de fundamentos (compacta)
+    st.markdown("#### Indicadores do Yahoo Finance (info)")
+    st.dataframe(
+        df_info.T.rename(columns={0: "Valor"}),
+        use_container_width=True,
+        height=420
+    )
+
+    # Download CSV
+    csv_bytes = df_info.to_csv(index=False).encode("utf-8")
+    st.download_button("⬇️ Baixar CSV (overview da empresa)", data=csv_bytes,
+                       file_name=f"{ticker}_overview.csv", mime="text/csv")
     
-    # Navegação principal
-    selected_mode = st.radio(
-        "Navigation",
-        ["Home", "Individual Analysis", "Screener"],
-        index=0 if st.session_state.get("mode", "home") == "home" else 1 if st.session_state.get("mode") == "single" else 2
+    # ✅ Salva no estado para a Etapa 3
+    st.session_state["empresa_info_df"] = df_info
+    st.session_state["empresa_px"] = px
+
+# ============================================================
+# ETAPA 3 — Análise avançada (cards + comparativo setorial)
+# ============================================================
+
+# ——— Utilitários de normalização/score ———
+def _minmax(x):
+    # Aceita Series OU DataFrame
+    if isinstance(x, pd.DataFrame):
+        s = x.copy().astype(float)
+        col_min = s.min(numeric_only=True)
+        col_max = s.max(numeric_only=True)
+        rng = col_max - col_min
+        # evita divisão por zero: onde rng==0, devolve 0.5
+        rng = rng.replace(0, np.nan)
+        out = (s - col_min) / rng
+        return out.fillna(0.5)
+    else:
+        s = pd.to_numeric(pd.Series(x), errors="coerce")
+        if s.empty or s.max() == s.min():
+            return pd.Series([0.5] * len(s), index=s.index)
+        return (s - s.min()) / (s.max() - s.min())
+
+def _safe(v):
+    try:
+        return float(v)
+    except Exception:
+        return np.nan
+
+def _score_value(df: pd.DataFrame) -> pd.Series:
+    cols = ["P/L", "P/VP", "EV/EBITDA", "P/Sales"]
+    tmp = df[cols].applymap(_safe)
+    # normaliza coluna a coluna e inverte (menor = melhor)
+    inv = 1 - _minmax(tmp)
+    return inv.mean(axis=1)
+
+def _score_profit(df: pd.DataFrame) -> pd.Series:
+    cols = ["ROE (%)", "ROA (%)", "Margem Líquida (%)", "Margem Operacional (%)", "Margem EBITDA (%)"]
+    tmp = df[cols].applymap(_safe)
+    return _minmax(tmp).mean(axis=1)
+
+def _score_strength(df: pd.DataFrame) -> pd.Series:
+    cols_low  = ["Debt/Equity"]                  # menor melhor
+    cols_high = ["Current Ratio", "Quick Ratio"] # maior melhor
+
+    parts = []
+    if all(c in df.columns for c in cols_low):
+        tmp_low = df[cols_low].applymap(_safe)
+        parts.append(1 - _minmax(tmp_low))  # inverte para "menor=melhor"
+    if all(c in df.columns for c in cols_high):
+        tmp_high = df[cols_high].applymap(_safe)
+        parts.append(_minmax(tmp_high))
+
+    if not parts:
+        return pd.Series([np.nan] * len(df), index=df.index)
+
+    return pd.concat(parts, axis=1).mean(axis=1)
+
+def _score_momentum(px: pd.Series) -> dict:
+    out = {}
+    out["1M"]  = _momentum_from_series(px, TRADING_DAYS["1M"])
+    out["3M"]  = _momentum_from_series(px, TRADING_DAYS["3M"])
+    out["6M"]  = _momentum_from_series(px, TRADING_DAYS["6M"])
+    out["12M"] = _momentum_from_series(px, TRADING_DAYS["12M"])
+    return out
+
+@st.cache_data(show_spinner=True)
+def _fetch_peers_overview(tickers: list, period_prices: str = "2y"):
+    """Coleta info de múltiplos para uma lista de tickers (sem preços)."""
+    rows = []
+    for tk in tickers:
+        try:
+            t = yf.Ticker(tk)
+            info = t.info
+            rows.append({
+                "Ticker": tk,
+                "P/L": _safe(info.get("trailingPE")),
+                "P/VP": _safe(info.get("priceToBook")),
+                "EV/EBITDA": _safe(info.get("enterpriseToEbitda")),
+                "P/Sales": _safe(info.get("priceToSalesTrailing12Months")),
+                "Dividend Yield (%)": _as_pct(info.get("dividendYield")),
+                "ROE (%)": _as_pct(info.get("returnOnEquity")),
+                "ROA (%)": _as_pct(info.get("returnOnAssets")),
+                "Margem Líquida (%)": _as_pct(info.get("profitMargins")),
+                "Margem Operacional (%)": _as_pct(info.get("operatingMargins")),
+                "Margem EBITDA (%)": _as_pct(info.get("ebitdaMargins")),
+                "Debt/Equity": _safe(info.get("debtToEquity")),
+                "Current Ratio": _safe(info.get("currentRatio")),
+                "Quick Ratio": _safe(info.get("quickRatio")),
+                "Setor": info.get("sector"),
+                "Empresa": info.get("longName"),
+                "Market Cap (R$ bi)": (_safe(info.get("marketCap"))/1e9 if info.get("marketCap") else np.nan),
+            })
+        except Exception:
+            pass
+    return pd.DataFrame(rows)
+  
+def etapa3_analise_avancada():
+    st.markdown("### Análise Financeira")
+    ticker = st.session_state.get("empresa_escolhida")
+    if not ticker:
+        st.info("Selecione e confirme uma empresa nas etapas anteriores.")
+        return
+
+    # — Parâmetros de análise —
+    c1, c2 = st.columns([1,1])
+    with c1:
+        period_prices = st.selectbox("Período para momentum", ["1y", "2y", "5y"], index=1, key="e3_period")
+    with c2:
+        topN = st.slider("Máx. de pares (mesmo setor)", min_value=4, max_value=20, value=10, step=1,
+                         help="Para não pesar a coleta, limitamos a quantidade de pares.")
+
+    # — Dados da empresa (reutiliza cache da etapa 2 quando possível) —
+    if "empresa_info_df" in st.session_state and "empresa_px" in st.session_state:
+        df_info_self = st.session_state["empresa_info_df"].copy()
+        px_self = st.session_state["empresa_px"].copy()
+    else:
+        info, px_self, _ = fetch_yf_info_and_prices(ticker, period_prices=period_prices)
+        df_info_self = _build_overview_from_info(info)
+
+    # Scores e momentum da empresa
+    df_self = df_info_self.copy()
+    mom = _score_momentum(px_self)
+    df_self["Momentum 1M (%)"]  = mom["1M"]*100 if mom["1M"]==mom["1M"] else np.nan
+    df_self["Momentum 3M (%)"]  = mom["3M"]*100 if mom["3M"]==mom["3M"] else np.nan
+    df_self["Momentum 6M (%)"]  = mom["6M"]*100 if mom["6M"]==mom["6M"] else np.nan
+    df_self["Momentum 12M (%)"] = mom["12M"]*100 if mom["12M"]==mom["12M"] else np.nan
+
+    # — Encontrar pares (mesmo setor) a partir do Excel —
+    df_class, msg = load_classif_setorial()
+
+    # Série da ação escolhida (ex.: CMIG3.SA -> "3")
+    mserie = re.search(r"(\d{1,2})\.SA$", ticker)
+    serie_sel = mserie.group(1) if mserie else "3"
+
+    # Monta TickerFinal para o Excel (usa TICKER se existir; senão CÓDIGO + a MESMA série da escolhida)
+    def _build_tickerfinal(row):
+        tk = str(row.get("Ticker", "")).strip()
+        if tk:
+            return _normalize_ticker(tk)
+        cod = str(row.get("Codigo", "")).strip().upper()
+        return _normalize_ticker(f"{cod}{serie_sel}.SA") if cod else ""
+
+    df_class["TickerFinal"] = df_class.apply(_build_tickerfinal, axis=1)
+
+    # Descobre o setor pelo Excel (garante o mesmo idioma/estrutura da sua planilha)
+    linha = df_class[df_class["TickerFinal"].str.upper() == ticker.upper()]
+    setor_self = linha["Setor"].iloc[0] if not linha.empty else None
+
+    # Lista de pares do mesmo setor (do Excel)
+    if setor_self:
+        df_sector = df_class[df_class["Setor"] == setor_self].copy()
+        peers_list = [t for t in df_sector["TickerFinal"].dropna().unique().tolist() if isinstance(t, str)]
+        peers_list = [t for t in peers_list if t != ticker][:topN]  # remove o próprio e limita
+    else:
+        peers_list = []
+
+    # Diagnóstico visual
+    with st.expander("🔍 Diagnóstico dos pares", expanded=False):
+        st.write("Setor (Excel):", setor_self)
+        st.write("Qtd. pares:", len(peers_list))
+        st.write(peers_list[:20])
+
+    # — Coleta dos pares —
+    df_peers = _fetch_peers_overview(peers_list, period_prices=period_prices) if peers_list else pd.DataFrame()
+
+    # — Consolidação (empresa + pares) —
+    df_all = pd.concat([
+        df_self.assign(Ticker=ticker)[[
+            "Ticker","Empresa","Setor","P/L","P/VP","EV/EBITDA","P/Sales",
+            "Dividend Yield (%)","ROE (%)","ROA (%)","Margem Líquida (%)",
+            "Margem Operacional (%)","Margem EBITDA (%)","Debt/Equity",
+            "Current Ratio","Quick Ratio","Market Cap (R$ bi)",
+            "Momentum 1M (%)","Momentum 3M (%)","Momentum 6M (%)","Momentum 12M (%)",
+        ]],
+        df_peers.reindex(columns=[
+            "Ticker","Empresa","Setor","P/L","P/VP","EV/EBITDA","P/Sales",
+            "Dividend Yield (%)","ROE (%)","ROA (%)","Margem Líquida (%)",
+            "Margem Operacional (%)","Margem EBITDA (%)","Debt/Equity",
+            "Current Ratio","Quick Ratio","Market Cap (R$ bi)"
+        ])
+    ], ignore_index=True)
+
+    # — Cálculo de scores —
+    df_scores = df_all.copy()
+    df_scores["Score Value"]   = _score_value(df_scores)
+    df_scores["Score Profit"]  = _score_profit(df_scores)
+    df_scores["Score Strength"]= _score_strength(df_scores)
+    # Momentum composto (média dos disponíveis)
+    mom_cols = ["Momentum 1M (%)","Momentum 3M (%)","Momentum 6M (%)","Momentum 12M (%)"]
+    df_scores["Score Momentum"] = _minmax(df_scores[mom_cols].applymap(_safe)).mean(axis=1)
+
+    # Score geral (pesos ajustáveis – por enquanto fixos; depois podemos expor sliders)
+    W_VALUE, W_PROFIT, W_STRENGTH, W_MOM = 0.30, 0.30, 0.20, 0.20
+    df_scores["Score Total"] = (
+        W_VALUE*df_scores["Score Value"] +
+        W_PROFIT*df_scores["Score Profit"] +
+        W_STRENGTH*df_scores["Score Strength"] +
+        W_MOM*df_scores["Score Momentum"]
+    )
+
+    # — Cards da empresa (destaques) —
+    st.markdown("#### 🧾 Destaques (empresa selecionada)")
+    c1, c2, c3, c4 = st.columns(4)
+    sel = df_scores[df_scores["Ticker"] == ticker]
+    if sel.empty:
+        st.warning("Não encontrei a linha da empresa nos scores. Mostrando apenas a tabela.")
+        st.dataframe(df_scores.sort_values("Score Total", ascending=False).reset_index(drop=True),
+                 use_container_width=True, height=420)
+        return
+    row_self = sel.iloc[0]
+    with c1: st.metric("Score Value",     f"{row_self['Score Value']*100:,.0f} / 100")
+    with c2: st.metric("Score Profit",    f"{row_self['Score Profit']*100:,.0f} / 100")
+    with c3: st.metric("Score Strength",  f"{row_self['Score Strength']*100:,.0f} / 100")
+    with c4: st.metric("Score Momentum",  f"{row_self['Score Momentum']*100:,.0f} / 100")
+
+    # --- RADAR: Scores (empresa x mediana do setor) ---
+    st.markdown("#### 🕸️ Radar de Scores (0–100) — empresa vs. setor")
+
+    score_cols = ["Score Value", "Score Profit", "Score Strength", "Score Momentum"]
+
+    # seleciona linha da empresa
+    sel = df_scores[df_scores["Ticker"] == ticker]
+    if sel.empty:
+        st.info("Não foi possível localizar os scores da empresa selecionada.")
+    else:
+        row_self = sel.iloc[0]
+
+        # mediana do setor (usa todas as linhas exceto NaN)
+        med_setor = df_scores[score_cols].median(numeric_only=True)
+
+        # prepara vetores (0–100)
+        labels = ["Value", "Profit", "Strength", "Momentum"]
+        emp_vals = [(row_self[c] * 100) if pd.notna(row_self[c]) else np.nan for c in score_cols]
+        setor_vals = [(med_setor[c] * 100) if pd.notna(med_setor[c]) else np.nan for c in score_cols]
+
+        # remove categorias completamente ausentes (ambos NaN)
+        mask = [not (np.isnan(e) and np.isnan(s)) for e, s in zip(emp_vals, setor_vals)]
+        labels = [l for l, m in zip(labels, mask) if m]
+        emp_vals = [v for v, m in zip(emp_vals, mask) if m]
+        setor_vals = [v for v, m in zip(setor_vals, mask) if m]
+
+        if not labels:
+            st.info("Sem dados suficientes para montar o radar de scores.")
+        else:
+            import plotly.graph_objects as go
+            fig_radar = go.Figure()
+            fig_radar.add_trace(go.Scatterpolar(
+                r=emp_vals, theta=labels, fill="toself", name=ticker
+            ))
+            fig_radar.add_trace(go.Scatterpolar(
+                r=setor_vals, theta=labels, fill="toself", name="Setor (mediana)"
+            ))
+            fig_radar.update_layout(
+                polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
+                showlegend=True,
+                title="Radar de Scores (0–100)"
+            )
+            st.plotly_chart(fig_radar, use_container_width=True)
+
+    # — Gráficos —
+    st.markdown("#### 📊 Comparativos do setor")
+    g1, g2 = st.columns(2)
+
+    # (a) Dispersão P/L × ROE com tamanho por Market Cap
+    with g1:
+        if not df_scores.empty:
+            # Saneamento para o Plotly
+            df_plot = df_scores.copy()
+            for col in ["P/L", "ROE (%)", "Market Cap (R$ bi)"]:
+                df_plot[col] = pd.to_numeric(df_plot[col], errors="coerce")
+
+            # remove linhas sem X ou Y válidos
+            df_plot = df_plot.dropna(subset=["P/L", "ROE (%)"]).copy()
+
+            if df_plot.empty:
+                st.info("Sem dados numéricos suficientes para P/L e ROE dos pares.")
+            else:
+                # tamanho (não pode ter NaN/negativo/inf)
+                sz = df_plot["Market Cap (R$ bi)"].replace([np.inf, -np.inf], np.nan).fillna(0.0)
+                sz = sz.clip(lower=0.0) + 0.1  # evita zero puro
+
+                fig_sc = px.scatter(
+                    df_plot,
+                    x="P/L",
+                    y="ROE (%)",
+                    color="Ticker",
+                    size=sz,                       # ← usa série saneada
+                    hover_name="Empresa",
+                    title="P/L × ROE (bolha = Market Cap)"
+                )
+
+                # destaca a empresa selecionada (se houver ponto válido)
+                try:
+                    row_self = df_plot[df_plot["Ticker"] == ticker].iloc[0]
+                    x_self = float(row_self["P/L"])
+                    y_self = float(row_self["ROE (%)"])
+                    if np.isfinite(x_self) and np.isfinite(y_self):
+                        fig_sc.add_scatter(
+                            x=[x_self], y=[y_self],
+                            mode="markers+text", text=[ticker], textposition="top center",
+                            marker=dict(size=14, symbol="star")
+                        )
+                except Exception:
+                    pass
+
+                st.plotly_chart(fig_sc, use_container_width=True)
+        else:
+            st.info("Sem pares (setor não encontrado ou sem tickers válidos).")
+
+    # (b) Barras margens (empresa vs. mediana do setor)
+    with g2:
+        if not df_scores.empty:
+            cols_marg = ["Margem Líquida (%)","Margem Operacional (%)","Margem EBITDA (%)"]
+            med_setor = df_scores[cols_marg].median(numeric_only=True)
+            bar_df = pd.DataFrame({
+                "Indicador": cols_marg,
+                "Empresa": [row_self[c] for c in cols_marg],
+                "Setor (mediana)": [med_setor[c] for c in cols_marg]
+            })
+            fig_bar = go.Figure()
+            fig_bar.add_bar(x=bar_df["Indicador"], y=bar_df["Empresa"], name=ticker)
+            fig_bar.add_bar(x=bar_df["Indicador"], y=bar_df["Setor (mediana)"], name="Setor (mediana)")
+            fig_bar.update_layout(barmode="group", title="Margens: empresa vs. setor (mediana)")
+            st.plotly_chart(fig_bar, use_container_width=True)
+        else:
+            st.info("Sem dados suficientes para margens do setor.")
+
+    h1, h2 = st.columns(2)
+
+    # (c) Barras: ROE e ROA — empresa vs mediana do setor
+    with h1:
+        if not df_scores.empty:
+            # garante numérico
+            df_tmp = df_scores.copy()
+            for col in ["ROE (%)", "ROA (%)"]:
+                df_tmp[col] = pd.to_numeric(df_tmp[col], errors="coerce")
+
+            med_setor = df_tmp[["ROE (%)", "ROA (%)"]].median(numeric_only=True)
+            row_plot = df_tmp[df_tmp["Ticker"] == ticker].iloc[0]
+
+            bar_df = pd.DataFrame({
+                "Indicador": ["ROE (%)", "ROA (%)"],
+                "Empresa": [row_plot["ROE (%)"], row_plot["ROA (%)"]],
+                "Setor (mediana)": [med_setor["ROE (%)"], med_setor["ROA (%)"]],
+            })
+
+            fig_bar_rent = go.Figure()
+            fig_bar_rent.add_bar(x=bar_df["Indicador"], y=bar_df["Empresa"], name=ticker)
+            fig_bar_rent.add_bar(x=bar_df["Indicador"], y=bar_df["Setor (mediana)"], name="Setor (mediana)")
+            fig_bar_rent.update_layout(barmode="group", title="Rentabilidades: empresa vs. setor (mediana)",
+                                       yaxis_title="%")
+            st.plotly_chart(fig_bar_rent, use_container_width=True)
+        else:
+            st.info("Sem dados suficientes para ROE/ROA.")
+
+    # (d) Barras: Liquidez — Current Ratio e Quick Ratio (empresa vs mediana do setor)
+    with h2:
+        if not df_scores.empty:
+            df_tmp = df_scores.copy()
+            for col in ["Current Ratio", "Quick Ratio"]:
+                df_tmp[col] = pd.to_numeric(df_tmp[col], errors="coerce")
+
+            med_setor = df_tmp[["Current Ratio", "Quick Ratio"]].median(numeric_only=True)
+            row_plot = df_tmp[df_tmp["Ticker"] == ticker].iloc[0]
+
+            bar_df = pd.DataFrame({
+                "Indicador": ["Current Ratio", "Quick Ratio"],
+                "Empresa": [row_plot["Current Ratio"], row_plot["Quick Ratio"]],
+                "Setor (mediana)": [med_setor["Current Ratio"], med_setor["Quick Ratio"]],
+            })
+
+            fig_bar_liq = go.Figure()
+            fig_bar_liq.add_bar(x=bar_df["Indicador"], y=bar_df["Empresa"], name=ticker)
+            fig_bar_liq.add_bar(x=bar_df["Indicador"], y=bar_df["Setor (mediana)"], name="Setor (mediana)")
+            fig_bar_liq.update_layout(barmode="group", title="Liquidez: empresa vs. setor (mediana)")
+            st.plotly_chart(fig_bar_liq, use_container_width=True)
+        else:
+            st.info("Sem dados suficientes para liquidez.")    
+
+    @st.cache_data(show_spinner=True)
+    
+    def fetch_prices_multi(tickers: list, period: str = "2y"):
+    
+        """Baixa preços ajustados de vários tickers e retorna um DF de Close."""
+        if not tickers:
+            return pd.DataFrame()
+        try:
+            df = yf.download(
+                tickers=tickers,
+                period=period, interval="1d",
+                auto_adjust=True, group_by="ticker",
+                threads=False, progress=False,
+            )
+            # extrai a coluna Close em qualquer formato que vier
+            if isinstance(df.columns, pd.MultiIndex):
+                close = df.xs("Close", axis=1, level=1, drop_level=False).copy()
+                # rearranja para colunas simples com os tickers
+                close = close.droplevel(1, axis=1)
+            else:
+                # único ticker
+                close = pd.DataFrame({tickers[0]: df["Close"]})
+            close = close.dropna(how="all")
+            return close
+        except Exception:
+            return pd.DataFrame()
+
+    def _normalize_base100(col: pd.Series) -> pd.Series:
+        """Normaliza cada série individualmente para 100 no primeiro ponto válido."""
+        if col is None or col.dropna().empty:
+            return col
+        base = col.dropna().iloc[0]
+        return (col / base) * 100.0
+
+        # ====== Evolução de Preços (base 100) — empresa + pares ======
+    st.markdown("#### 📈 Preço normalizado (base 100) — empresa e pares")
+
+    # recupera a lista de pares que você montou acima na mesma função
+    # (se preferir, salve peers_list no session_state quando montar)
+    peers_for_chart = []
+    try:
+        peers_for_chart = peers_list.copy()
+    except NameError:
+        peers_for_chart = []
+
+    # monta universo: empresa + pares (sem duplicados)
+    univ = [ticker] + [t for t in peers_for_chart if t != ticker]
+    univ = list(dict.fromkeys([t for t in univ if isinstance(t, str) and t]))
+
+    cols = st.columns([1,1,1])
+    with cols[0]:
+        per = st.selectbox("Período do gráfico", ["6mo", "1y", "2y", "5y"], index=2, key="prices_base100_period")
+    with cols[1]:
+        show_legend = st.toggle("Mostrar legenda completa", value=False)
+    with cols[2]:
+        st.caption("Séries ajustadas e normalizadas para 100 no 1º ponto válido.")
+
+    # coleta e plota
+    prices = fetch_prices_multi(univ, period=per)
+    if prices.empty:
+        st.info("Sem dados de preço para o universo selecionado.")
+    else:
+        # normaliza cada coluna individualmente
+        base100 = prices.apply(_normalize_base100)
+        base100 = base100.dropna(how="all")
+
+        fig_norm = go.Figure()
+        for col in base100.columns:
+            # destaque para o ticker selecionado
+            is_sel = (col == ticker)
+            fig_norm.add_trace(go.Scatter(
+                x=base100.index, y=base100[col],
+                mode="lines", name=col,
+                line=dict(width=3 if is_sel else 1.5),
+                opacity=1.0 if is_sel else 0.8
+            ))
+        fig_norm.update_layout(
+            height=420,
+            title="Evolução do preço (100 = início de cada série)",
+            xaxis_title="Data", yaxis_title="Índice (base 100)",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0.0) if show_legend else dict()
+        )
+        st.plotly_chart(fig_norm, use_container_width=True)
+
+
+    
+    st.markdown("#### 📋 Tabela (empresa + pares)")
+    st.dataframe(
+        df_scores.sort_values("Score Total", ascending=False).reset_index(drop=True),
+        use_container_width=True, height=420
     )
     
-    # Converter seleção para mode key
-    mode_map = {"Home": "home", "Individual Analysis": "single", "Screener": "screener"}
-    set_mode(mode_map[selected_mode])
-    
-    st.markdown("---")
-    
-    # Atalhos rápidos
-    st.markdown("**Quick Actions**")
-    quick_col1, quick_col2 = st.columns(2)
-    
-    with quick_col1:
-        if st.button("🏠 Home", use_container_width=True):
-            set_mode("home")
-    
-    with quick_col2:
-        if st.button("🔄 Reset", use_container_width=True):
-            st.session_state.clear()
-            set_mode("home")
-    
-    st.markdown("---")
-    
-    # Informações
-    st.markdown("""
-    <div style="color: var(--text-secondary); font-size: 0.875rem;">
-        <p><strong>Version:</strong> 2.0 Modern</p>
-        <p><strong>Data Source:</strong> Yahoo Finance</p>
-        <p><strong>Last Update:</strong> Today</p>
-    </div>
-    """, unsafe_allow_html=True)
+    # Export
+    st.download_button(
+        "⬇️ Baixar CSV (empresa + pares + scores)",
+        data=df_scores.to_csv(index=False).encode("utf-8"),
+        file_name=f"{ticker}_pares_scores.csv",
+        mime="text/csv"
+    )
 
-# ====== ROTEAMENTO PRINCIPAL ======
-if st.session_state.get("mode", "home") == "home":
-    render_modern_home()
-elif st.session_state.get("mode") == "single":
-    render_modern_single_analysis()
-elif st.session_state.get("mode") == "screener":
-    render_modern_screener()
+    # Guarda em sessão para eventuais próximas etapas
+    st.session_state["etapa3_df_scores"] = df_scores
 
-# ====== FOOTER ======
+# ============================================================
+# ETAPA 4 — Valuation (Target Price por múltiplos e Ben Graham)
+# ============================================================
+
+def etapa4_valuation():
+    st.markdown("### Valuation (Target Price)")
+
+    ticker = st.session_state.get("empresa_escolhida")
+    if not ticker:
+        st.info("Selecione e confirme uma empresa nas etapas anteriores.")
+        return
+
+    # -------------------------
+    # Parâmetros da avaliação
+    # -------------------------
+    c1, c2, c3 = st.columns([1, 1, 1.2])
+    with c1:
+        lookback = st.selectbox("Janela p/ histórico de preço", ["2y", "5y"], index=1,
+                                help="Usada p/ calcular P/L e P/VP históricos (média ao longo do período).")
+    with c2:
+        g_pct = st.number_input("g (crescimento anual, %)", value=5.0, step=0.5, min_value=-10.0, max_value=50.0,
+                                help="Usado na fórmula de Ben Graham: EPS × (8,5 + 2g) × (4,4/Y)")
+    with c3:
+        y_pct = st.number_input("Y (yield livre de risco, %)", value=10.0, step=0.5, min_value=1.0, max_value=30.0,
+                                help="Usado na fórmula de Ben Graham; 4,4 é o yield base da fórmula.")
+
+    # -------------------------
+    # Coleta básica
+    # -------------------------
+    # Reuso da Etapa 2 quando possível
+    info_df = st.session_state.get("empresa_info_df")
+    px_2 = st.session_state.get("empresa_px")
+
+    # Sempre buscamos uma série longa p/ histórico de múltiplos
+    try:
+        t = yf.Ticker(ticker)
+        info = t.info if info_df is None else None  # se já temos df_info, usamos abaixo
+        hist_long = t.history(period=lookback, interval="1d")
+        px_long = hist_long["Close"].dropna() if "Close" in hist_long else pd.Series(dtype=float)
+    except Exception:
+        info = {}
+        px_long = pd.Series(dtype=float)
+
+    # Último preço (referência)
+    try:
+        p_now = float(px_long.iloc[-1] if not px_long.empty else (px_2.iloc[-1] if px_2 is not None and not px_2.empty else np.nan))
+    except Exception:
+        p_now = np.nan
+
+    # EPS (trailing) e BVPS (book per share) — tentativas com fallback
+    def _num(v): 
+        try: return float(v)
+        except: return np.nan
+
+    if info_df is not None and not info_df.empty and "P/L" in info_df.columns and "P/VP" in info_df.columns:
+        # Podemos inferir EPS/BVPS por: EPS ≈ Price / (P/L), BVPS ≈ Price / (P/VP)
+        pl_now = _num(info_df.at[0, "P/L"])
+        pb_now = _num(info_df.at[0, "P/VP"])
+    else:
+        pl_now = _num((info or {}).get("trailingPE"))
+        pb_now = _num((info or {}).get("priceToBook"))
+
+    # Se priceToBook e trailingPE vieram vazios, tentamos ler 'bookValue' e 'trailingEps'
+    eps_ttm = _num((info or {}).get("trailingEps"))
+    bvps = _num((info or {}).get("bookValue"))
+
+    # Fallbacks a partir de múltiplos + preço atual
+    if (np.isnan(eps_ttm) or eps_ttm == 0) and (not np.isnan(pl_now)) and (pl_now > 0) and (not np.isnan(p_now)):
+        eps_ttm = p_now / pl_now
+    if (np.isnan(bvps) or bvps == 0) and (not np.isnan(pb_now)) and (pb_now > 0) and (not np.isnan(p_now)):
+        bvps = p_now / pb_now
+
+    # Segurança: evita divisões por zero/negativas
+    eps_ttm = eps_ttm if (not np.isnan(eps_ttm) and eps_ttm > 0) else np.nan
+    bvps    = bvps    if (not np.isnan(bvps) and bvps > 0) else np.nan
+
+    # -------------------------
+    # P/L e P/VP HISTÓRICOS (médias)
+    # -------------------------
+    # Observação: usamos EPS e BVPS atuais como aproximadores para derivar uma "média histórica" de múltiplos:
+    # PE_hist_avg ≈ média(Preço(t)/EPS_atual) ao longo da janela; idem para PB utilizando BVPS_atual.
+    if px_long is not None and not px_long.empty:
+        pe_hist_series = px_long / eps_ttm if (eps_ttm and not np.isnan(eps_ttm) and eps_ttm > 0) else pd.Series(dtype=float)
+        pb_hist_series = px_long / bvps    if (bvps    and not np.isnan(bvps)    and bvps    > 0) else pd.Series(dtype=float)
+
+        pe_hist_avg = float(np.nanmean(pe_hist_series)) if not pe_hist_series.empty else np.nan
+        pb_hist_avg = float(np.nanmean(pb_hist_series)) if not pb_hist_series.empty else np.nan
+    else:
+        pe_hist_avg, pb_hist_avg = np.nan, np.nan
+
+    # -------------------------
+    # P/L e P/VP — MEDIANA DO SETOR
+    # -------------------------
+    df_scores = st.session_state.get("etapa3_df_scores")
+    if df_scores is None or df_scores.empty:
+        pl_med_setor, pb_med_setor = np.nan, np.nan
+    else:
+        dfp = df_scores.copy()
+        dfp["P/L"]  = pd.to_numeric(dfp["P/L"], errors="coerce")
+        dfp["P/VP"] = pd.to_numeric(dfp["P/VP"], errors="coerce")
+        pl_med_setor = float(dfp["P/L"].median(skipna=True))
+        pb_med_setor = float(dfp["P/VP"].median(skipna=True))
+
+    # -------------------------
+    # Targets por múltiplos
+    # -------------------------
+    targets = []
+
+    def add_target(label, price):
+        if np.isnan(price) or price <= 0 or np.isnan(p_now):
+            up = np.nan
+            verdict = "—"
+        else:
+            up = (price / p_now) - 1.0
+            verdict = "Desconto (↑)" if up > 0 else "Prêmio (↓)"
+        targets.append({"Método": label, "Target": price, "Upside (%)": (up * 100.0) if not np.isnan(up) else np.nan, "Veredito": verdict})
+
+    # P/L histórico
+    if not np.isnan(eps_ttm) and not np.isnan(pe_hist_avg) and pe_hist_avg > 0:
+        add_target("P/L histórico", eps_ttm * pe_hist_avg)
+    else:
+        add_target("P/L histórico", np.nan)
+
+    # P/L mediana do setor
+    if not np.isnan(eps_ttm) and not np.isnan(pl_med_setor) and pl_med_setor > 0:
+        add_target("P/L mediana do setor", eps_ttm * pl_med_setor)
+    else:
+        add_target("P/L mediana do setor", np.nan)
+
+    # P/VP histórico
+    if not np.isnan(bvps) and not np.isnan(pb_hist_avg) and pb_hist_avg > 0:
+        add_target("P/VP histórico", bvps * pb_hist_avg)
+    else:
+        add_target("P/VP histórico", np.nan)
+
+    # P/VP mediana do setor
+    if not np.isnan(bvps) and not np.isnan(pb_med_setor) and pb_med_setor > 0:
+        add_target("P/VP mediana do setor", bvps * pb_med_setor)
+    else:
+        add_target("P/VP mediana do setor", np.nan)
+
+    # -------------------------
+    # Ben Graham
+    # P_graham = EPS × (8,5 + 2g) × (4,4 / Y)
+    # onde g e Y são percentuais (ex.: g=5% → 5; Y=10% → 10)
+    # -------------------------
+    if not np.isnan(eps_ttm):
+        g = float(g_pct)
+        Y = float(y_pct)
+        if Y <= 0: Y = 10.0
+        p_graham = eps_ttm * (8.5 + 2 * g) * (4.4 / Y)
+        add_target("Ben Graham", p_graham)
+    else:
+        add_target("Ben Graham", np.nan)
+
+    df_targets = pd.DataFrame(targets)
+
+    # -------------------------
+    # Ben Graham (clássica simplificada)
+    # VI = 22.5 × LPA × VPA
+    # -------------------------
+    if not np.isnan(eps_ttm) and not np.isnan(bvps):
+        vi_graham = 22.5 * eps_ttm * bvps
+        add_target("Ben Graham (22,5×LPA×VPA)", vi_graham)
+    else:
+        add_target("Ben Graham (22,5×LPA×VPA)", np.nan)
+
+    if not np.isnan(eps_ttm) and not np.isnan(bvps):
+        vi_graham_simplificada = 22.5 * eps_ttm * bvps
+        add_target("Ben Graham (22,5×LPA×VPA)", vi_graham_simplificada)
+
+    if not np.isnan(eps_ttm):
+        g = float(g_pct)
+        Y = float(y_pct)
+        if Y <= 0: Y = 10.0
+        vi_graham_ajustada = eps_ttm * (8.5 + 2 * g) * (4.4 / Y)
+        add_target("Ben Graham ajustada (8,5+2g)", vi_graham_ajustada)
+
+    # -------------------------
+    # Exibição
+    # -------------------------
+    k1, k2, k3 = st.columns(3)
+    with k1: st.metric("Preço atual", f"{p_now:,.2f}" if not np.isnan(p_now) else "—")
+    with k2: st.metric("EPS (ttm)",   f"{eps_ttm:,.2f}" if not np.isnan(eps_ttm) else "—")
+    with k3: st.metric("BVPS",        f"{bvps:,.2f}" if not np.isnan(bvps) else "—")
+
+    st.markdown("#### 🎯 Preços-alvo")
+    st.dataframe(df_targets, use_container_width=True, height=260)
+
+    # Gráfico: barras horizontais Target vs Preço Atual
+    if not df_targets.empty and not np.isnan(p_now):
+        plot_df = df_targets.copy()
+        plot_df["Target"] = pd.to_numeric(plot_df["Target"], errors="coerce")
+        plot_df = plot_df.dropna(subset=["Target"])
+        if not plot_df.empty:
+            fig_tp = go.Figure()
+            fig_tp.add_bar(y=plot_df["Método"], x=plot_df["Target"], orientation="h", name="Target")
+            fig_tp.add_vline(x=p_now, line_dash="dash", annotation_text=f"Preço atual: {p_now:,.2f}",
+                             annotation_position="top right")
+            fig_tp.update_layout(height=420, title="Targets por metodologia (linha tracejada = preço atual)",
+                                 xaxis_title="Preço", yaxis_title="")
+            st.plotly_chart(fig_tp, use_container_width=True)
+
+    # Export
+    st.download_button(
+        "⬇️ Baixar CSV (targets de valuation)",
+        data=df_targets.to_csv(index=False).encode("utf-8"),
+        file_name=f"{ticker}_valuation_targets.csv",
+        mime="text/csv"
+    )
+
+    st.caption("Notas: P/L e P/VP históricos são aproximados usando EPS/BVPS atuais como denominadores sobre a série de preços "
+               f"({lookback}). A fórmula de Ben Graham usa g={g_pct:.1f}% e Y={y_pct:.1f}%. Ajuste conforme seu cenário.")
+
+
+def render_single_layout():
+    st.subheader("🔎 Análise Individual")
+    etapa1_selecao_empresa()      # Etapa 1
+    if "empresa_escolhida" in st.session_state:
+        st.markdown("---")
+        etapa2_coleta_dados()     # Etapa 2
+        st.markdown("---")
+        etapa3_analise_avancada() # Etapa 3
+        st.markdown("---")
+        etapa4_valuation()        # Etapa 4  ✅ NOVA
+
+def render_screener_layout():
+    st.subheader("📈 Screener / Ranking — layout")
+    st.caption("Esqueleto visual para filtros, pesos e ranking. Próxima etapa: dados.")
+
+    f1, f2, f3 = st.columns([1.2,1,1])
+    with f1:
+        st.multiselect("Setores", ["Energia","Financeiro","Materiais Básicos","Consumo"], help="Carregados do Excel quando integrarmos")
+    with f2:
+        st.slider("Peso: Value", 0.0, 1.0, 0.25, 0.05)
+    with f3:
+        st.slider("Peso: Quality", 0.0, 1.0, 0.25, 0.05)
+
+    f4, f5 = st.columns(2)
+    with f4:
+        st.slider("Peso: Momentum", 0.0, 1.0, 0.25, 0.05)
+    with f5:
+        st.slider("Peso: Crescimento", 0.0, 1.0, 0.25, 0.05)
+
+    st.container(border=True).markdown("**Tabela placeholder** — Ranking com colunas essenciais (Ticker, Setor, P/L, P/VP, EV/EBITDA, ROE, Momentum, Score)")
+    st.container(height=6)
+    st.container(border=True).markdown("**Gráfico placeholder** — Dispersão P/L × ROE (bolhas por Market Cap)")
+
+# ------------------------------
+# Roteamento simples por modo
+# ------------------------------
+if st.session_state["mode"] == "home":
+    render_home()
+elif st.session_state["mode"] == "single":
+    render_single_layout()
+elif st.session_state["mode"] == "screener":
+    render_screener_layout()
+
+# Rodapé
 st.markdown("""
-<div style="margin-top: 4rem; padding: 2rem 0; border-top: 1px solid var(--border); text-align: center;">
-    <p style="color: var(--text-secondary); font-size: 0.875rem; margin: 0;">
-        Developed for educational purposes • Modern Stock Analysis Dashboard
-    </p>
-</div>
+<hr class='soft'/>
+<small style='opacity:.7'>Elaborado pelo Prof. Luiz Eduardo Gaio (UNICAMP) para fins educacionais.</small>
 """, unsafe_allow_html=True)
 
 
