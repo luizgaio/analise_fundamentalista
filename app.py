@@ -1319,18 +1319,18 @@ def etapa4_valuation():
                f"({lookback}). A fórmula de Ben Graham usa g={g_pct:.1f}% e Y={y_pct:.1f}%. Ajuste conforme seu cenário.")
 
 def render_company_header():
-    nome  = st.session_state.get("empresa_nome", st.session_state.get("empresa_escolhida", "—"))
-    setor = st.session_state.get("empresa_setor")
-    subsetor = st.session_state.get("empresa_subsetor")
-    segmento = st.session_state.get("empresa_segmento")
+    nome_curto = st.session_state.get("empresa_escolhida", "—")
+    nome_completo = st.session_state.get("empresa_nome", "")
+    setor = st.session_state.get("empresa_setor", "")
+    subsetor = st.session_state.get("empresa_subsetor", "")
+    segmento = st.session_state.get("empresa_segmento", "")
 
     st.markdown(f"""
-<div style="margin:0 0 0.75rem 0;">
-  <h1 style="margin:0; font-size:3rem; font-weight:800; letter-spacing:.5px;">
-    {nome.upper()}
-  </h1>
-  <div style="display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.5rem;">
-    {f'<span class="badge badge-blue">{setor}</span>' if setor else ''}
+<div style="margin:0 0 1.2rem 0;">
+  <h1 style="margin:0; font-size:3rem; font-weight:800; letter-spacing:.5px;">{nome_curto.upper()}</h1>
+  <h3 style="margin:0.3rem 0 0.8rem 0; font-size:1.3rem; font-weight:400; color:#cbd5e1;">{nome_completo}</h3>
+  <div style="display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.25rem;">
+    {f'<span class="badge badge-sector">{setor}</span>' if setor else ''}
     {f'<span class="badge badge-blue">{subsetor}</span>' if subsetor else ''}
     {f'<span class="badge badge-blue">{segmento}</span>' if segmento else ''}
   </div>
