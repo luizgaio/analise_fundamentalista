@@ -104,45 +104,109 @@ st.set_page_config(
 def inject_base_styles():
     st.markdown("""
     <style>
-      :root{
-        --bg:#0f172a; --bg2:#0b1220; --tx:#e2e8f0; --tx2:#cbd5e1; --bd:rgba(255,255,255,.08);
+      :root {
+        --bg: #0f172a;
+        --bg2: #0b1220;
+        --tx: #e2e8f0;
+        --tx2: #cbd5e1;
+        --bd: rgba(255,255,255,.08);
       }
-      /* Garantias: containers e sidebar */
-      html,body,.stApp,div[data-testid="stAppViewContainer"]{background:var(--bg)!important;color:var(--tx)!important;}
-      section[data-testid="stSidebar"]{background:var(--bg2)!important;border-right:1px solid var(--bd)}
-      .block-container{background:transparent!important}
 
-      /* DataFrame / Table (head e body) */
-      .stDataFrame, .stTable{background:var(--bg2)!important;border:1px solid var(--bd)!important;border-radius:10px}
-      .stDataFrame thead, .stTable thead{background:var(--bg)!important;color:var(--tx)!important;}
-      .stDataFrame tbody, .stTable tbody{color:var(--tx)!important;}
+      /* ====== Layout geral ====== */
+      html, body, .stApp, div[data-testid="stAppViewContainer"] {
+        background: var(--bg)!important;
+        color: var(--tx)!important;
+      }
+      section[data-testid="stSidebar"] {
+        background: var(--bg2)!important;
+        border-right: 1px solid var(--bd);
+      }
+      .block-container { background: transparent!important; }
 
-      /* Select / Dropdown (BaseWeb) */
-      div[data-baseweb="select"]{background:var(--bg2)!important;color:var(--tx)!important;border:1px solid var(--bd)!important;}
-      div[role="listbox"]{background:var(--bg2)!important;color:var(--tx)!important;border:1px solid var(--bd)!important;}
-      div[role="option"]{color:var(--tx)!important;}
-      input::placeholder{color:var(--tx2)!important;}
+      /* ====== DataFrames e Tabelas ====== */
+      .stDataFrame, .stTable {
+        background: var(--bg2)!important;
+        border: 1px solid var(--bd)!important;
+        border-radius: 10px;
+      }
+      .stDataFrame thead, .stTable thead {
+        background: var(--bg)!important;
+        color: var(--tx)!important;
+      }
+      .stDataFrame tbody, .stTable tbody { color: var(--tx)!important; }
 
-      /* Expander & Tabs */
-      .st-expander{background:var(--bg2)!important;border:1px solid var(--bd)!important;border-radius:12px}
-      .stTabs [data-baseweb="tab-list"]{background:var(--bg2)!important;border-radius:10px;border:1px solid var(--bd)}
-      .stTabs [data-baseweb="tab"]{color:var(--tx2)!important}
-      .stTabs [aria-selected="true"]{color:var(--tx)!important;border-color:#60a5fa!important}
+      /* ====== Select / Dropdown ====== */
+      div[data-baseweb="select"] {
+        background: var(--bg2)!important;
+        color: var(--tx)!important;
+        border: 1px solid var(--bd)!important;
+      }
+      div[role="listbox"] {
+        background: var(--bg2)!important;
+        color: var(--tx)!important;
+        border: 1px solid var(--bd)!important;
+      }
+      div[role="option"] { color: var(--tx)!important; }
+      input::placeholder { color: var(--tx2)!important; }
 
-      /* Metrics */
-      div[data-testid="stMetric"]{background:rgba(255,255,255,.06)!important;border:1px solid var(--bd);border-radius:12px}
-      div[data-testid="stMetricValue"], div[data-testid="stMetricLabel"]{color:var(--tx)!important}
+      /* ====== Expanders ====== */
+      .st-expander {
+        background: var(--bg2)!important;
+        border: 1px solid var(--bd)!important;
+        border-radius: 12px;
+      }
 
-      /* Botões */
-      .stButton>button{background:var(--bg2)!important;color:var(--tx)!important;border:1px solid var(--bd)!important;}
-      
-      /* Centraliza label e valor dos st.metric */
-      div[data-testid="stMetric"] { text-align:center; }
-      div[data-testid="stMetricLabel"] { text-align:center; width:100%; }
-      div[data-testid="stMetricValue"] { text-align:center; width:100%; display:block; }
+      /* ====== ABAS (Tabs) ====== */
+      /* Container das abas */
+      .stTabs [data-baseweb="tab-list"] {
+        display: flex;
+        gap: 12px;                           /* espaçamento entre as abas */
+        background: transparent;
+        border: none;
+        margin-bottom: 1rem;
+      }
+
+      /* Cada aba como um “bloquinho” */
+      .stTabs [data-baseweb="tab"] {
+        border: 1px solid var(--bd);
+        border-radius: 10px;
+        background: var(--bg2);
+        color: var(--tx2)!important;
+        padding: 8px 14px;
+        font-weight: 500;
+        transition: all 0.2s ease-in-out;
+      }
+
+      /* Aba ativa */
+      .stTabs [aria-selected="true"] {
+        color: var(--tx)!important;
+        border-color: #60a5fa!important;
+        box-shadow: 0 0 0 1px #60a5fa inset;
+      }
+
+      /* ====== Métricas ====== */
+      div[data-testid="stMetric"] {
+        background: rgba(255,255,255,.06)!important;
+        border: 1px solid var(--bd);
+        border-radius: 12px;
+        text-align: center;
+      }
+      div[data-testid="stMetricValue"], div[data-testid="stMetricLabel"] {
+        color: var(--tx)!important;
+        text-align: center;
+        width: 100%;
+        display: block;
+      }
+
+      /* ====== Botões ====== */
+      .stButton > button {
+        background: var(--bg2)!important;
+        color: var(--tx)!important;
+        border: 1px solid var(--bd)!important;
+      }
     </style>
-    <style>
     """, unsafe_allow_html=True)
+
 
 inject_base_styles()
 
@@ -1378,37 +1442,20 @@ def render_company_header():
 def render_single_with_tabs():
     render_company_header()
 
-    # Bloco 1
-    (tab1,) = st.tabs(["📊 Análise Financeira"])
+    tab1, tab2, tab3 = st.tabs([
+        "📊 Análise Financeira",
+        "📈 Comparativo do Setor",
+        "💰 Valuation (Target Price)"
+    ])
+
     with tab1:
-        try:
-            etapa2_coleta_dados()
-        except Exception as e:
-            st.error("Falha ao carregar a Análise Financeira.")
-            st.caption(str(e))
+        etapa2_coleta_dados()
 
-    st.container(height=12)
-
-    # Bloco 2
-    (tab2,) = st.tabs(["📈 Comparativos do Setor"])
     with tab2:
-        try:
-            etapa3_analise_avancada()
-        except Exception as e:
-            st.error("Falha ao carregar os Comparativos do Setor.")
-            st.caption(str(e))
+        etapa3_analise_avancada()
 
-    st.container(height=12)
-
-    # Bloco 3
-    (tab3,) = st.tabs(["💰 Valuation (Target Price)"])
     with tab3:
-        try:
-            etapa4_valuation()
-        except Exception as e:
-            st.error("Falha ao carregar o Valuation.")
-            st.caption(str(e))
-
+        etapa4_valuation()
 
 
 def render_single_layout():
