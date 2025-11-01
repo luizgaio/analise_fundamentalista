@@ -14,6 +14,8 @@ import numpy as np
 import yfinance as yf
 import plotly.graph_objects as go
 import plotly.express as px
+import plotly.io as pio
+pio.templates.default = "plotly_dark"
 import re
 import pandas as pd
 import streamlit as st
@@ -94,22 +96,55 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ====== THEME / STYLES ======
+# ====== THEME / STYLES (dark completo) ======
 def inject_base_styles():
     st.markdown("""
     <style>
-      /* fundo e tipografia */
-      .main {background: #0f172a;} /* slate-900 */
-      html, body, [class*="css"]  { color: #e2e8f0; } /* slate-200 */
-      /* títulos */
-      h1, h2, h3, h4 { color:#e5e7eb; letter-spacing:.3px }
-      /* cards metric */
-      div[data-testid="stMetricValue"] { font-size: 36px; }
-      /* containers com borda suave */
-      .block-container { padding-top: 1.5rem; }
-      section[data-testid="stSidebar"] { background:#0b1220; }
-      /* tabelas */
-      .stDataFrame { background: #0b1020; border-radius: 10px; }
+      /* --------- App container (centro) --------- */
+      /* cobre variações de DOM entre versões do Streamlit */
+      .stApp, html, body {
+        background: #0f172a !important;           /* slate-900 */
+        color: #e2e8f0 !important;                /* slate-200 */
+      }
+      div[data-testid="stAppViewContainer"] {
+        background: #0f172a !important;           /* fundo principal */
+      }
+      /* container de conteúdo (onde ficam os elementos) */
+      .block-container {
+        padding-top: 1.25rem;
+        background: transparent !important;
+      }
+
+      /* --------- Sidebar --------- */
+      section[data-testid="stSidebar"] {
+        background: #0b1220 !important;
+        color: #e2e8f0 !important;
+        border-right: 1px solid rgba(255,255,255,0.06);
+      }
+
+      /* --------- Títulos / textos --------- */
+      h1, h2, h3, h4, h5, h6 { color:#e5e7eb !important; letter-spacing:.3px; }
+      p, label, span, div { color: inherit; }
+
+      /* --------- Cards / botões utilitários do seu layout --------- */
+      .card {
+        background: rgba(255,255,255,0.06) !important;
+        border: 1px solid rgba(255,255,255,0.08) !important;
+        border-radius: 16px; padding: 16px;
+      }
+      .card:hover { box-shadow: 0 12px 24px rgba(0,0,0,.25); transform: translateY(-2px); }
+      .btn-ghost { border-color: rgba(255,255,255,0.25) !important; color: #fff !important; }
+
+      /* --------- DataFrame --------- */
+      .stDataFrame, .stTable {
+        background: #0b1020 !important;
+        border-radius: 10px;
+      }
+
+      /* --------- Inputs (select, slider etc) --------- */
+      .stSelectbox, .stTextInput, .stNumberInput, .stMultiSelect, .stDateInput {
+        color: #e2e8f0 !important;
+      }
     </style>
     """, unsafe_allow_html=True)
 
