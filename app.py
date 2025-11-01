@@ -135,7 +135,13 @@ def inject_base_styles():
 
       /* Botões */
       .stButton>button{background:var(--bg2)!important;color:var(--tx)!important;border:1px solid var(--bd)!important;}
+      
+      /* Centraliza label e valor dos st.metric */
+      div[data-testid="stMetric"] { text-align:center; }
+      div[data-testid="stMetricLabel"] { text-align:center; width:100%; }
+      div[data-testid="stMetricValue"] { text-align:center; width:100%; display:block; }
     </style>
+    <style>
     """, unsafe_allow_html=True)
 
 inject_base_styles()
@@ -1369,15 +1375,23 @@ def render_company_header():
 
 def render_single_with_tabs():
     render_company_header()
-    tab1, tab2, tab3 = st.tabs([
-        "📊 Análise Financeira",
-        "📈 Comparativos do setor",
-        "💰 Valuation (Target Price)"
-    ])
+
+    # Aba 1 (isolada)
+    (tab1,) = st.tabs(["📊 Análise Financeira"])
     with tab1:
         etapa2_coleta_dados()
+
+    st.container(height=10)  # espaçamento entre as abas
+
+    # Aba 2 (isolada)
+    (tab2,) = st.tabs(["📈 Comparativos do setor"])
     with tab2:
         etapa3_analise_avancada()
+
+    st.container(height=10)  # espaçamento entre as abas
+
+    # Aba 3 (isolada)
+    (tab3,) = st.tabs(["💰 Valuation (Target Price)"])
     with tab3:
         etapa4_valuation()
 
