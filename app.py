@@ -66,28 +66,73 @@ def fetch_yf_info_and_prices(ticker: str, period_prices: str = "2y"):
 
     return info, px, ibov_px
 
+def _num(v):
+    try:
+        return float(v)
+    except Exception:
+        return np.nan
+
+def _pct(v):
+    return _num(v) * 100.0 if v is not None else np.nan
+
 def _build_overview_from_info(info: dict) -> pd.DataFrame:
-    """Monta um DataFrame enxuto com os principais indicadores do yfinance.info."""
+    """
+    Monta um DF com indicadores do yfinance.info.
+    Muitos campos podem vir ausentes; tratamos como NaN.
+    """
+    # bases para cálculos
+    ev     = _num(info.get("enterpriseValue"))
+    ebit   = _num(info.get("ebit")) if info.get("ebit") is not None else _num(info.get("operatingIncome"))
+    total_debt  = _num(info.get("totalDebt"))
+    total_cash  = _num(info.get("totalCash"))
+    net_debt    = (total_debt - total_cash) if (not np.isnan(total_debt) and not np.isnan(total_cash)) else np.nan
+    equity      = _num(info.get("totalStockholderEquity"))
+    total_assets= _num(info.get("totalAssets"))
+
     rows = [{
+        # Identidade
         "Empresa": info.get("longName"),
         "Setor": info.get("sector"),
-        "P/L": _safe_pct(info.get("trailingPE")),
-        "P/VP": _safe_pct(info.get("priceToBook")),
-        "EV/EBITDA": _safe_pct(info.get("enterpriseToEbitda")),
-        "P/Sales": _safe_pct(info.get("priceToSalesTrailing12Months")),
-        "Dividend Yield (%)": _as_pct(info.get("dividendYield")),
-        "ROE (%)": _as_pct(info.get("returnOnEquity")),
-        "ROA (%)": _as_pct(info.get("returnOnAssets")),
-        "Margem Líquida (%)": _as_pct(info.get("profitMargins")),
-        "Margem Operacional (%)": _as_pct(info.get("operatingMargins")),
-        "Margem EBITDA (%)": _as_pct(info.get("ebitdaMargins")),
-        "Debt/Equity": _safe_pct(info.get("debtToEquity")),
-        "Current Ratio": _safe_pct(info.get("currentRatio")),
-        "Quick Ratio": _safe_pct(info.get("quickRatio")),
-        "Market Cap (R$ bi)": (_safe_pct(info.get("marketCap")) / 1e9) if info.get("marketCap") else np.nan,
+
+        # Valor da Empresa
+        "Market Cap": _num(info.get("marketCap")),
+        "Enterprise Value": ev,
+
+        # Análise de Mercado
+        "P/L (Trailing)": _num(info.get("trailingPE")),
+        "P/L (Forward)":  _num(info.get("forwardPE")),
+        "P/VP":            _num(info.get("priceToBook")),
+        "PEG":             _num(info.get("pegRatio")),
+        "P/Sales":         _num(info.get("priceToSalesTrailing12Months")),
+
+        # EV múltiplos
+        "EV/EBITDA":       _num(info.get("enterpriseToEbitda")),
+        "EV/Revenue":      _num(info.get("enterpriseToRevenue")),
+        "EV/EBIT (calc)":  (ev/ebit) if (not np.isnan(ev) and not np.isnan(ebit) and ebit != 0) else np.nan,
+
+        # Rentabilidade e Risco
+        "ROE (%)":         _pct(info.get("returnOnEquity")),
+        "ROA (%)":         _pct(info.get("returnOnAssets")),
+        "Dividend Yield (%)": _pct(info.get("dividendYield")),
+        "Beta":            _num(info.get("beta")),
+
+        # Eficiência / Margens
+        "Margem Bruta (%)":   _pct(info.get("grossMargins")),
+        "Margem EBIT (%)":    _pct(info.get("operatingMargins")),
+        "Margem EBITDA (%)":  _pct(info.get("ebitdaMargins")),
+        "Margem Líquida (%)": _pct(info.get("profitMargins")),
+
+        # Endividamento
+        "Net Debt/Equity": (net_debt/equity) if (not np.isnan(net_debt) and not np.isnan(equity) and equity != 0) else np.nan,
+        "Net Debt/Assets": (net_debt/total_assets) if (not np.isnan(net_debt) and not np.isnan(total_assets) and total_assets != 0) else np.nan,
+
+        # Liquidez / Eficiência de giro
+        "Liquidez Corrente": _num(info.get("currentRatio")),
+        "Liquidez Seca":     _num(info.get("quickRatio")),
+        "Giro do Ativo":     _num(info.get("assetTurnover")),
+        "Giro de Estoque":   _num(info.get("inventoryTurnover")),
     }]
-    df = pd.DataFrame(rows)
-    return df
+    return pd.DataFrame(rows)
 
 
 # ------------------------------
@@ -651,6 +696,78 @@ def etapa2_coleta_dados():
     df_info = _build_overview_from_info(info)
     nome = df_info.at[0, "Empresa"] if not df_info.empty else ticker
     st.session_state["empresa_nome_completo"] = nome
+    # ===== Painel 7 colunas com grupos =====
+def fmt_money_brl_bi(v):
+    return "—" if (v is None or np.isnan(v)) else f"R$ {v/1e9:,.1f} bi"
+
+def fmt_num(v, d=2):
+    return "—" if (v is None or np.isnan(v)) else f"{v:.{d}f}"
+
+def fmt_pct(v, d=1):
+    return "—" if (v is None or np.isnan(v)) else f"{v:.{d}f}%"
+
+r = df_info.iloc[0]
+
+c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
+
+with c1:
+    st.markdown("### Valor da Empresa")
+    st.markdown(
+        f"- **Valor de Mercado**: {fmt_money_brl_bi(r.get('Market Cap'))}\n"
+        f"- **Enterprise Value**: {fmt_money_brl_bi(r.get('Enterprise Value'))}"
+    )
+
+with c2:
+    st.markdown("### Análise de Mercado")
+    st.markdown(
+        f"- **P/L (Trailing)**: {fmt_num(r.get('P/L (Trailing)'))}\n"
+        f"- **P/L (Forward)**: {fmt_num(r.get('P/L (Forward)'))}\n"
+        f"- **P/VP**: {fmt_num(r.get('P/VP'))}\n"
+        f"- **PEG**: {fmt_num(r.get('PEG'))}"
+    )
+
+with c3:
+    st.markdown("### Análise de Mercado (cont.)")
+    st.markdown(
+        f"- **EV/EBITDA**: {fmt_num(r.get('EV/EBITDA'))}\n"
+        f"- **EV/EBIT**: {fmt_num(r.get('EV/EBIT (calc)'))}\n"
+        f"- **EV/Revenue**: {fmt_num(r.get('EV/Revenue'))}\n"
+        f"- **P/Sales**: {fmt_num(r.get('P/Sales'))}"
+    )
+
+with c4:
+    st.markdown("### Rentabilidade e Risco")
+    st.markdown(
+        f"- **ROE**: {fmt_pct(r.get('ROE (%)'))}\n"
+        f"- **ROA**: {fmt_pct(r.get('ROA (%)'))}\n"
+        f"- **Dividend Yield**: {fmt_pct(r.get('Dividend Yield (%)'))}\n"
+        f"- **Beta**: {fmt_num(r.get('Beta'))}"
+    )
+
+with c5:
+    st.markdown("### Eficiência")
+    st.markdown(
+        f"- **Margem Bruta**: {fmt_pct(r.get('Margem Bruta (%)'))}\n"
+        f"- **Margem EBIT**: {fmt_pct(r.get('Margem EBIT (%)'))}\n"
+        f"- **Margem EBITDA**: {fmt_pct(r.get('Margem EBITDA (%)'))}\n"
+        f"- **Margem Líquida**: {fmt_pct(r.get('Margem Líquida (%)'))}"
+    )
+
+with c6:
+    st.markdown("### Endividamento")
+    st.markdown(
+        f"- **Dívida Líquida/PL**: {fmt_num(r.get('Net Debt/Equity'))}\n"
+        f"- **Dívida Líquida/Ativo**: {fmt_num(r.get('Net Debt/Assets'))}"
+    )
+
+with c7:
+    st.markdown("### Índices de Liquidez")
+    st.markdown(
+        f"- **Liquidez Corrente**: {fmt_num(r.get('Liquidez Corrente'))}\n"
+        f"- **Liquidez Seca**: {fmt_num(r.get('Liquidez Seca'))}\n"
+        f"- **Giro do Ativo**: {fmt_num(r.get('Giro do Ativo'))}\n"
+        f"- **Giro Estoque**: {fmt_num(r.get('Giro de Estoque'))}"
+    )
     setor = df_info.at[0, "Setor"] if not df_info.empty else None
 
     # Header com destaques
