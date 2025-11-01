@@ -204,6 +204,19 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+st.markdown("""
+<style>
+/* badge maior para o SETOR */
+.badge-sector{
+  display:inline-block; padding:6px 14px; border-radius:999px;
+  font-size:14px; font-weight:700; letter-spacing:.4px;
+  background:rgba(47,107,255,.18); color:#e2e8f0; text-transform:uppercase;
+}
+/* deixa subsetor/segmento em MAIÚSCULAS mantendo seu estilo */
+.badge-blue{ text-transform:uppercase; }
+</style>
+""", unsafe_allow_html=True)
+
 # ------------------------------
 # Cabeçalho
 # ------------------------------
@@ -559,14 +572,13 @@ def etapa2_coleta_dados():
     # Overview (múltiplos, margens etc.)
     df_info = _build_overview_from_info(info)
     nome = df_info.at[0, "Empresa"] if not df_info.empty else ticker
+    st.session_state["empresa_long_name"] = nome  # <-- adiciona esta linha
     setor = df_info.at[0, "Setor"] if not df_info.empty else None
 
     # Header com destaques
-    h1, h2, h3, h4 = st.columns(4)
-    with h1: st.metric("Empresa", nome if nome else ticker)
-    with h2: st.metric("Setor", setor or "—")
-    with h3: st.metric("P/L", f'{df_info.at[0,"P/L"]:.2f}' if not np.isnan(df_info.at[0,"P/L"]) else "—")
-    with h4: st.metric("ROE (%)", f'{df_info.at[0,"ROE (%)"]:.1f}' if not np.isnan(df_info.at[0,"ROE (%)"]) else "—")
+    m1, m2 = st.columns(2)
+    with m1: st.metric("P/L",  f'{df_info.at[0,"P/L"]:.2f}'  if not np.isnan(df_info.at[0,"P/L"]) else "—")
+    with m2: st.metric("ROE (%)", f'{df_info.at[0,"ROE (%)"]:.1f}' if not np.isnan(df_info.at[0,"ROE (%)"]) else "—")
 
     # Momentum
     ret_1m = _momentum_from_series(px, TRADING_DAYS["1M"])
@@ -1319,16 +1331,19 @@ def etapa4_valuation():
                f"({lookback}). A fórmula de Ben Graham usa g={g_pct:.1f}% e Y={y_pct:.1f}%. Ajuste conforme seu cenário.")
 
 def render_company_header():
-    nome_curto = st.session_state.get("empresa_escolhida", "—")
-    nome_completo = st.session_state.get("empresa_nome", "")
-    setor = st.session_state.get("empresa_setor", "")
-    subsetor = st.session_state.get("empresa_subsetor", "")
-    segmento = st.session_state.get("empresa_segmento", "")
+    # nome principal = o que você já salva como "empresa_nome"
+    nome_curto   = st.session_state.get("empresa_nome", "") or "—"
+    # nome completo vem da etapa 2 (salvamos em empresa_long_name); se não houver, usa o curto
+    nome_completo = st.session_state.get("empresa_long_name", "") or nome_curto
+
+    setor    = (st.session_state.get("empresa_setor") or "").upper()
+    subsetor = (st.session_state.get("empresa_subsetor") or "").upper()
+    segmento = (st.session_state.get("empresa_segmento") or "").upper()
 
     st.markdown(f"""
 <div style="margin:0 0 1.2rem 0;">
   <h1 style="margin:0; font-size:3rem; font-weight:800; letter-spacing:.5px;">{nome_curto.upper()}</h1>
-  <h3 style="margin:0.3rem 0 0.8rem 0; font-size:1.3rem; font-weight:400; color:#cbd5e1;">{nome_completo}</h3>
+  <h3 style="margin:.30rem 0 .80rem 0; font-size:1.20rem; font-weight:400; color:#cbd5e1;">{nome_completo}</h3>
   <div style="display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.25rem;">
     {f'<span class="badge badge-sector">{setor}</span>' if setor else ''}
     {f'<span class="badge badge-blue">{subsetor}</span>' if subsetor else ''}
@@ -1336,8 +1351,6 @@ def render_company_header():
   </div>
 </div>
 """, unsafe_allow_html=True)
-
-
 
 def render_single_with_tabs():
     render_company_header()
