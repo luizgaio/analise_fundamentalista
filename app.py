@@ -1379,8 +1379,8 @@ def etapa4_valuation():
     # -------------------------
     k1, k2, k3 = st.columns(3)
     with k1: st.metric("Preço atual", f"{p_now:,.2f}" if not np.isnan(p_now) else "—")
-    with k2: st.metric("EPS (ttm)",   f"{eps_ttm:,.2f}" if not np.isnan(eps_ttm) else "—")
-    with k3: st.metric("BVPS",        f"{bvps:,.2f}" if not np.isnan(bvps) else "—")
+    with k2: st.metric("Lucro por Ação (LPA)",   f"{eps_ttm:,.2f}" if not np.isnan(eps_ttm) else "—")
+    with k3: st.metric("Valor Patrimonial por Ação (VPA)",        f"{bvps:,.2f}" if not np.isnan(bvps) else "—")
 
     st.markdown("#### 🎯 Preços-alvo")
     st.dataframe(df_targets, use_container_width=True, height=260)
