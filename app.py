@@ -835,10 +835,6 @@ def etapa2_coleta_dados():
     # ==========================================================
     # Métricas rápidas + Momentum (mantidos)
     # ==========================================================
-    st.markdown("---")
-    m1, m2 = st.columns(2)
-    with m1: st.metric("P/L (Trailing)", fmt_num(r.get("P/L (Trailing)")))
-    with m2: st.metric("ROE (%)",        fmt_pct(r.get("ROE (%)")))
 
     ret_1m  = _momentum_from_series(px, TRADING_DAYS["1M"])
     ret_3m  = _momentum_from_series(px, TRADING_DAYS["3M"])
