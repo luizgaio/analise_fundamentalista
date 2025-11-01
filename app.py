@@ -216,7 +216,7 @@ def render_home():
 
 # ============================================================
 # MODO: ANÁLISE INDIVIDUAL
-# ETAPA 1 — Seleção da Empresa (por lista OU por setor→subsetor→segmento)
+# Visão  (por lista OU por setor→subsetor→segmento)
 # ============================================================
 
 # ---------- Utils de leitura e normalização ----------
@@ -282,7 +282,7 @@ def load_classif_setorial(path: str = "ClassifSetorial.xlsx") -> Tuple[pd.DataFr
 
 
 def etapa1_selecao_empresa():
-    st.markdown("### Etapa 1 — Seleção da Empresa")
+    st.markdown("### Seleção da Empresa")
 
     # 1) Carrega base setorial
     df_class, msg = load_classif_setorial()
@@ -390,7 +390,7 @@ def etapa1_selecao_empresa():
         st.caption("**Estado atual**: nenhuma empresa confirmada.")
 
 def etapa2_coleta_dados():
-    st.markdown("### Etapa 2 — Coleta e visão geral")
+    st.markdown("### Visão geral")
     ticker = st.session_state.get("empresa_escolhida")
     if not ticker:
         st.info("Selecione uma empresa na Etapa 1 para continuar.")
@@ -577,7 +577,7 @@ def _fetch_peers_overview(tickers: list, period_prices: str = "2y"):
     
  
 def etapa3_analise_avancada():
-    st.markdown("### Etapa 3 — Análise avançada (scores e pares do setor)")
+    st.markdown("### Análise Financeira")
     ticker = st.session_state.get("empresa_escolhida")
     if not ticker:
         st.info("Selecione e confirme uma empresa nas etapas anteriores.")
