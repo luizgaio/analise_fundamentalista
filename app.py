@@ -763,15 +763,6 @@ def etapa3_analise_avancada():
         else:
             st.info("Sem dados suficientes para margens do setor.")
 
-    st.markdown("#### 📋 Tabela (empresa + pares)")
-    st.dataframe(
-        df_scores.sort_values("Score Total", ascending=False).reset_index(drop=True),
-        use_container_width=True, height=420
-    )
-    
-    # --- NOVOS COMPARATIVOS: RENTABILIDADES e LIQUIDEZ ---
-    st.markdown("#### 📊 Comparativos adicionais")
-
     h1, h2 = st.columns(2)
 
     # (c) Barras: ROE e ROA — empresa vs mediana do setor
@@ -822,8 +813,14 @@ def etapa3_analise_avancada():
             fig_bar_liq.update_layout(barmode="group", title="Liquidez: empresa vs. setor (mediana)")
             st.plotly_chart(fig_bar_liq, use_container_width=True)
         else:
-            st.info("Sem dados suficientes para liquidez.")
+            st.info("Sem dados suficientes para liquidez.")    
 
+    st.markdown("#### 📋 Tabela (empresa + pares)")
+    st.dataframe(
+        df_scores.sort_values("Score Total", ascending=False).reset_index(drop=True),
+        use_container_width=True, height=420
+    )
+    
     # Export
     st.download_button(
         "⬇️ Baixar CSV (empresa + pares + scores)",
