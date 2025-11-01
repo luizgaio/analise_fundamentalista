@@ -185,6 +185,25 @@ hr.soft { border:none; border-top:1px solid rgba(0,0,0,0.08); margin:18px 0; }
 """
 st.markdown(CARD_CSS, unsafe_allow_html=True)
 
+# Botão pequeno customizado (para "Começar")
+st.markdown("""
+<style>
+.btn-small {
+  display:inline-block;
+  background-color:#1d4ed8; /* Azul forte */
+  color:#fff !important;
+  padding:4px 10px;
+  border-radius:8px;
+  font-size:0.85rem;
+  text-decoration:none;
+  transition:background 0.2s ease;
+}
+.btn-small:hover {
+  background-color:#2563eb;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # ------------------------------
 # Cabeçalho
 # ------------------------------
@@ -245,6 +264,7 @@ def render_home():
               <span class='badge badge-blue'>Modo 1</span>
               <h3>🔎 Análise Individual</h3>
               <p>Estude profundamente uma empresa: múltiplos, rentabilidade, endividamento, histórico de preços e comparativos de setor.</p>
+              <a href='?mode=single' class='btn-small'>Começar</a>
             </div>
             """,
             unsafe_allow_html=True,
@@ -260,13 +280,13 @@ def render_home():
               <span class='badge badge-green'>Modo 2</span>
               <h3>📈 Screener / Ranking</h3>
               <p>Monte um ranking de empresas por múltiplos e qualidade. Filtros por setor, pesos customizados e exportação para CSV.</p>
+              <a href='?mode=screener' class='btn-small'>Começar</a>
             </div>
             """,
             unsafe_allow_html=True,
         )
         if st.button("Começar", key="btn_screener", use_container_width=True):
             set_mode("screener")
-
 
 
 # ============================================================
