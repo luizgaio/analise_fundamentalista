@@ -218,19 +218,19 @@ with col_title:
 # ------------------------------
 with st.sidebar:
     st.markdown("### Navegação")
-    sel = st.radio("", [MODES[m] for m in ("home","single","screener")], index=(0 if st.session_state["mode"]=="home" else 1 if st.session_state["mode"]=="single" else 2))
-    # converte label → chave
-    rev = {v:k for k,v in MODES.items()}
-    set_mode(rev[sel])
+    st.markdown("<div style='margin-top: -10px'></div>", unsafe_allow_html=True)
+    # Mapeia os modos com rótulos
+    nav_items = [
+        ("home",    "Início"),
+        ("single",  "Análise Individual"),
+        ("screener","Screener"),
+    ]
 
-    st.markdown("---")
-    st.markdown("**Atalhos**")
-    cols = st.columns(2)
-    if cols[0].button("🏠 Início", use_container_width=True):
-        set_mode("home")
-    if cols[1].button("🔄 Limpar sessão", use_container_width=True):
-        st.session_state.clear()
-        set_mode("home")
+    # Renderiza 3 botões verticais; o modo atual fica como "primary"
+    for mode_key, label in nav_items:
+        is_current = st.session_state.get("mode") == mode_key
+        if st.button(label, type=("primary" if is_current else "secondary"), use_container_width=True):
+            set_mode(mode_key)
 
 # ------------------------------
 # Páginas
