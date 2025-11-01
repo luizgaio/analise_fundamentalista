@@ -1381,14 +1381,14 @@ def render_single_with_tabs():
     with tab1:
         etapa2_coleta_dados()
 
-    st.container(height=10)  # espaçamento entre as abas
+    st.container(height=12)  # espaço entre as "abas"
 
     # Aba 2 (isolada)
     (tab2,) = st.tabs(["📈 Comparativos do setor"])
     with tab2:
         etapa3_analise_avancada()
 
-    st.container(height=10)  # espaçamento entre as abas
+    st.container(height=12)  # espaço entre as "abas"
 
     # Aba 3 (isolada)
     (tab3,) = st.tabs(["💰 Valuation (Target Price)"])
