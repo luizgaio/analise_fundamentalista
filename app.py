@@ -788,7 +788,6 @@ def etapa2_coleta_dados():
     # ==========================================================
     # LINHA 3 — Análise de Mercado (cont.) (4 boxes)
     # ==========================================================
-    st.subheader("Análise de Mercado (cont.)")
     c1, c2, c3, c4 = st.columns(4)
     with c1: box("EV/EBITDA",  fmt_num(r.get("EV/EBITDA")))
     with c2: box("EV/EBIT",    fmt_num(r.get("EV/EBIT (calc)")))
