@@ -326,6 +326,79 @@ def load_classif_setorial(path: str = "ClassifSetorial.xlsx") -> Tuple[pd.DataFr
     df = df[df["Setor"].notna() & (df["Setor"] != "")].copy().reset_index(drop=True)
     return df, None
 
+def render_sidebar_selector():
+    """Seleciona a empresa na SIDEBAR e preenche:
+       empresa_escolhida, empresa_nome, empresa_setor, empresa_subsetor, empresa_segmento
+    """
+    with st.sidebar:
+        st.markdown("### 🔎 Seleção da Empresa")
+        df_class, msg = load_classif_setorial()
+        if msg:
+            st.warning(msg)
+            return None
+
+        serie = st.selectbox("Tipo de ação", ["3","4","5","6","11"], index=1,
+                             help="3 = ON; 4/5/6 = PN; 11 = Unit.")
+
+        def _build_ticker(row):
+            tk = str(row.get("Ticker", "")).strip()
+            if tk:
+                return _normalize_ticker(tk)
+            cod = str(row.get("Codigo","")).strip().upper()
+            return _normalize_ticker(f"{cod}{serie}.SA") if cod else ""
+
+        df_class["TickerFinal"] = df_class.apply(_build_ticker, axis=1)
+        df_valid = df_class[df_class["TickerFinal"]!=""].copy()
+
+        modo = st.radio("Como deseja selecionar?",
+                        ["Por lista de tickers", "Por Setor → Subsetor → Segmento → Empresa"],
+                        index=0)
+
+        chosen = {"ticker": None, "empresa": None, "setor": None, "subsetor": None, "segmento": None}
+
+        if modo == "Por lista de tickers":
+            if "Empresa" in df_valid.columns and df_valid["Empresa"].notna().any():
+                df_valid["label"] = df_valid["TickerFinal"] + " — " + df_valid["Empresa"].astype(str)
+                label = st.selectbox("Empresa", df_valid["label"].sort_values(), index=0)
+                row  = df_valid.loc[df_valid["label"] == label].iloc[0]
+            else:
+                tk  = st.selectbox("Ticker", sorted(df_valid["TickerFinal"].unique()))
+                row = df_valid.loc[df_valid["TickerFinal"] == tk].iloc[0]
+        else:
+            df_f = df_valid.copy()
+            setor = st.selectbox("Setor", sorted(df_f["Setor"].dropna().unique()))
+            df_f = df_f[df_f["Setor"]==setor]
+
+            subsetores = sorted(df_f["Subsetor"].dropna().unique()) if "Subsetor" in df_f.columns else []
+            subsetor   = st.selectbox("Subsetor", subsetores) if subsetores else None
+            if subsetor: df_f = df_f[df_f["Subsetor"]==subsetor]
+
+            segmentos  = sorted(df_f["Segmento"].dropna().unique()) if "Segmento" in df_f.columns else []
+            segmento   = st.selectbox("Segmento", segmentos) if segmentos else None
+            if segmento: df_f = df_f[df_f["Segmento"]==segmento]
+
+            if "Empresa" in df_f.columns and df_f["Empresa"].notna().any():
+                df_f["label"] = df_f["TickerFinal"] + " — " + df_f["Empresa"].astype(str)
+                label = st.selectbox("Empresa", df_f["label"].sort_values())
+                row   = df_f.loc[df_f["label"] == label].iloc[0]
+            else:
+                tk  = st.selectbox("Ticker", sorted(df_f["TickerFinal"].unique()))
+                row = df_f.loc[df_f["TickerFinal"] == tk].iloc[0]
+
+        chosen["ticker"]   = row["TickerFinal"]
+        chosen["empresa"]  = row.get("Empresa") or row["TickerFinal"]
+        chosen["setor"]    = row.get("Setor")
+        chosen["subsetor"] = row.get("Subsetor")
+        chosen["segmento"] = row.get("Segmento")
+
+        st.session_state["empresa_escolhida"] = chosen["ticker"]
+        st.session_state["empresa_nome"]     = chosen["empresa"]
+        st.session_state["empresa_setor"]    = chosen["setor"]
+        st.session_state["empresa_subsetor"] = chosen["subsetor"]
+        st.session_state["empresa_segmento"] = chosen["segmento"]
+
+        st.success(f"Selecionado: **{chosen['ticker']}**")
+        return chosen
 
 def etapa1_selecao_empresa():
     st.markdown("### Seleção da Empresa")
@@ -1221,17 +1294,49 @@ def etapa4_valuation():
     st.caption("Notas: P/L e P/VP históricos são aproximados usando EPS/BVPS atuais como denominadores sobre a série de preços "
                f"({lookback}). A fórmula de Ben Graham usa g={g_pct:.1f}% e Y={y_pct:.1f}%. Ajuste conforme seu cenário.")
 
+def render_company_header():
+    nome     = st.session_state.get("empresa_nome", "")
+    setor    = st.session_state.get("empresa_setor")
+    subsetor = st.session_state.get("empresa_subsetor")
+    segmento = st.session_state.get("empresa_segmento")
+
+    st.markdown(
+        f"""
+        <div style="padding: .25rem 0 1rem 0;">
+          <h1 style="margin:0; font-weight:800;">{nome}</h1>
+          <div style="color:#cbd5e1; margin-top: .25rem">
+            {('' if not setor else f'<span class="badge badge-blue" style="margin-right:.5rem;">{setor}</span>')}
+            {('' if not subsetor else f'<span class="badge badge-blue" style="margin-right:.5rem;">{subsetor}</span>')}
+            {('' if not segmento else f'<span class="badge badge-blue">{segmento}</span>')}
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+def render_single_with_tabs():
+    render_company_header()
+    tab1, tab2, tab3 = st.tabs([
+        "📊 Análise Financeira",
+        "📈 Comparativos do setor",
+        "💰 Valuation (Target Price)"
+    ])
+    with tab1:
+        etapa2_coleta_dados()
+    with tab2:
+        etapa3_analise_avancada()
+    with tab3:
+        etapa4_valuation()
+
 
 def render_single_layout():
     st.subheader("🔎 Análise Individual")
-    etapa1_selecao_empresa()      # Etapa 1
-    if "empresa_escolhida" in st.session_state:
+    sel = render_sidebar_selector()   # ← seleção na sidebar
+    if sel and sel.get("ticker"):
         st.markdown("---")
-        etapa2_coleta_dados()     # Etapa 2
-        st.markdown("---")
-        etapa3_analise_avancada() # Etapa 3
-        st.markdown("---")
-        etapa4_valuation()        # Etapa 4  ✅ NOVA
+        render_single_with_tabs()     # ← conteúdo em abas
+    else:
+        st.info("Escolha uma empresa na barra lateral para iniciar a análise.")
 
 def render_screener_layout():
     st.subheader("📈 Screener / Ranking — layout")
