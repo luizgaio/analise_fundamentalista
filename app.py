@@ -172,7 +172,7 @@ with col_logo:
     st.markdown("<div style='font-size:44px'>📊</div>", unsafe_allow_html=True)
 with col_title:
     st.markdown("""
-    <h1 style='margin-bottom:0'>Dashboard B3 — Valuation</h1>
+    <h1 style='margin-bottom:0'>Análise Fundamentalista de Ações</h1>
     <p style='margin-top:6px;opacity:.8'>Escolha o modo de análise: <b>Individual</b> (uma empresa) ou <b>Screener</b> (ranking de várias).
     </p>
     """, unsafe_allow_html=True)
