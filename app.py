@@ -138,7 +138,7 @@ def inject_base_styles():
     </style>
     """, unsafe_allow_html=True)
 
-
+inject_base_styles()
 
 # ------------------------------
 # Utils de navegação
