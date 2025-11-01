@@ -777,6 +777,10 @@ def etapa3_analise_avancada():
 
     # — Encontrar pares (mesmo setor) a partir do Excel —
     df_class, msg = load_classif_setorial()
+    if msg:
+        st.warning(msg + " — Mostrando apenas a empresa, sem comparativos de setor.")
+        peers_list = []  # segue sem pares
+    else:
 
     # Série da ação escolhida (ex.: CMIG3.SA -> "3")
     mserie = re.search(r"(\d{1,2})\.SA$", ticker)
@@ -1376,24 +1380,37 @@ def render_company_header():
 def render_single_with_tabs():
     render_company_header()
 
-    # Aba 1 (isolada)
+    # Bloco 1
     (tab1,) = st.tabs(["📊 Análise Financeira"])
     with tab1:
-        etapa2_coleta_dados()
+        try:
+            etapa2_coleta_dados()
+        except Exception as e:
+            st.error("Falha ao carregar a Análise Financeira.")
+            st.caption(str(e))
 
-    st.container(height=12)  # espaço entre as "abas"
+    st.container(height=12)
 
-    # Aba 2 (isolada)
-    (tab2,) = st.tabs(["📈 Comparativos do setor"])
+    # Bloco 2
+    (tab2,) = st.tabs(["📈 Comparativos do Setor"])
     with tab2:
-        etapa3_analise_avancada()
+        try:
+            etapa3_analise_avancada()
+        except Exception as e:
+            st.error("Falha ao carregar os Comparativos do Setor.")
+            st.caption(str(e))
 
-    st.container(height=12)  # espaço entre as "abas"
+    st.container(height=12)
 
-    # Aba 3 (isolada)
+    # Bloco 3
     (tab3,) = st.tabs(["💰 Valuation (Target Price)"])
     with tab3:
-        etapa4_valuation()
+        try:
+            etapa4_valuation()
+        except Exception as e:
+            st.error("Falha ao carregar o Valuation.")
+            st.caption(str(e))
+
 
 
 def render_single_layout():
