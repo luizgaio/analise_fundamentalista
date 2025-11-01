@@ -166,7 +166,7 @@ def build_historical_fundamentals(ticker: str, max_years: int = 10) -> pd.DataFr
 
     # Transpõe e converte índice para ano
     dfs = []
-    for df in [inc, bal, cfs]:
+    for df in (inc, bal, cfs):
         if df is not None and not df.empty:
             df = df.T
             df.index = pd.to_datetime(df.index).year
@@ -177,20 +177,59 @@ def build_historical_fundamentals(ticker: str, max_years: int = 10) -> pd.DataFr
 
     df_all = pd.concat(dfs, axis=1)
 
-    # Seleciona colunas principais (presentes no Yahoo Finance)
-    cols = [
+    # ---- Normalização de nomes (sinônimos do Yahoo) ----
+    # mapeia o "alvo" → possíveis nomes no Yahoo
+    alias = {
+        "Total Revenue": [
+            "Total Revenue", "Total Revenue GAAP", "TotalRevnue"  # alguns dumps têm typos
+        ],
+        "Gross Profit": ["Gross Profit"],
+        "Operating Income": ["Operating Income", "Operating Income or Loss"],
+        "Net Income": [
+            "Net Income", "Net Income Common Stockholders",
+            "Net Income Applicable To Common Shares"
+        ],
+        "Total Assets": ["Total Assets"],
+        "Total Liab": ["Total Liab", "Total Liabilities", "Total Liabilities Net Minority Interest"],
+        "Total Stockholder Equity": [
+            "Total Stockholder Equity", "Stockholders Equity", "Total Stockholders Equity"
+        ],
+        "Operating Cash Flow": ["Operating Cash Flow"],
+        "Capital Expenditures": ["Capital Expenditures", "Capital Expenditure"]
+    }
+
+    # cria colunas-alvo quando achar algum sinônimo existente
+    for target, candidates in alias.items():
+        if target not in df_all.columns:
+            for c in candidates:
+                if c in df_all.columns:
+                    df_all[target] = df_all[c]
+                    break
+
+    # Seleciona as colunas principais que de fato existem
+    base_cols = [
         "Total Revenue", "Gross Profit", "Operating Income", "Net Income",
         "Total Assets", "Total Liab", "Total Stockholder Equity",
         "Operating Cash Flow", "Capital Expenditures"
     ]
-    df_sel = df_all[[c for c in cols if c in df_all.columns]].copy()
+    have_cols = [c for c in base_cols if c in df_all.columns]
+    df_sel = df_all[have_cols].copy()
 
-    # Calcula indicadores derivados
-    df_sel["ROE (%)"] = (df_sel["Net Income"] / df_sel["Total Stockholder Equity"]) * 100
-    df_sel["ROA (%)"] = (df_sel["Net Income"] / df_sel["Total Assets"]) * 100
-    df_sel["Margem Líquida (%)"] = (df_sel["Net Income"] / df_sel["Total Revenue"]) * 100
-    df_sel["Margem Operacional (%)"] = (df_sel["Operating Income"] / df_sel["Total Revenue"]) * 100
-    df_sel["Dívida/Patrimônio"] = (df_sel["Total Liab"] / df_sel["Total Stockholder Equity"])
+    # Helper para divisões seguras
+    def _safe_div(num_col: str, den_col: str, mult: float = 1.0):
+        if (num_col in df_all.columns) and (den_col in df_all.columns):
+            num = df_all[num_col].astype(float)
+            den = df_all[den_col].astype(float).replace(0, np.nan)
+            s = (num / den) * mult
+            return s
+        return pd.Series(index=df_all.index, dtype=float)
+
+    # Calcula indicadores derivados apenas quando viáveis
+    df_sel["ROE (%)"] = _safe_div("Net Income", "Total Stockholder Equity", 100.0)
+    df_sel["ROA (%)"] = _safe_div("Net Income", "Total Assets", 100.0)
+    df_sel["Margem Líquida (%)"] = _safe_div("Net Income", "Total Revenue", 100.0)
+    df_sel["Margem Operacional (%)"] = _safe_div("Operating Income", "Total Revenue", 100.0)
+    df_sel["Dívida/Patrimônio"] = _safe_div("Total Liab", "Total Stockholder Equity", 1.0)
 
     # Mantém apenas os últimos anos
     df_sel = df_sel.tail(max_years)
@@ -199,7 +238,7 @@ def build_historical_fundamentals(ticker: str, max_years: int = 10) -> pd.DataFr
     df_final = df_sel.T.round(2)
     df_final.columns = [str(c) for c in df_final.columns]  # anos como string
 
-    # Renomeia índices para português (opcional)
+    # Renomeia índices para PT-BR
     mapping = {
         "Total Revenue": "Receita Líquida",
         "Gross Profit": "Lucro Bruto",
@@ -214,11 +253,12 @@ def build_historical_fundamentals(ticker: str, max_years: int = 10) -> pd.DataFr
         "ROA (%)": "ROA (%)",
         "Margem Líquida (%)": "Margem Líquida (%)",
         "Margem Operacional (%)": "Margem Operacional (%)",
-        "Dívida/Patrimônio": "Dívida/Patrimônio"
+        "Dívida/Patrimônio": "Dívida/Patrimônio",
     }
     df_final.rename(index=mapping, inplace=True)
 
     return df_final
+
 
 
 # ------------------------------
