@@ -88,11 +88,33 @@ def _build_overview_from_info(info: dict) -> pd.DataFrame:
 # Configuração básica da página
 # ------------------------------
 st.set_page_config(
-    page_title="Dashboard B3 — Valuation",
+    page_title="Análise Fundamentalista de Ações",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# ====== THEME / STYLES ======
+def inject_base_styles():
+    st.markdown("""
+    <style>
+      /* fundo e tipografia */
+      .main {background: #0f172a;} /* slate-900 */
+      html, body, [class*="css"]  { color: #e2e8f0; } /* slate-200 */
+      /* títulos */
+      h1, h2, h3, h4 { color:#e5e7eb; letter-spacing:.3px }
+      /* cards metric */
+      div[data-testid="stMetricValue"] { font-size: 36px; }
+      /* containers com borda suave */
+      .block-container { padding-top: 1.5rem; }
+      section[data-testid="stSidebar"] { background:#0b1220; }
+      /* tabelas */
+      .stDataFrame { background: #0b1020; border-radius: 10px; }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_base_styles()
+
 
 # ------------------------------
 # Utils de navegação
