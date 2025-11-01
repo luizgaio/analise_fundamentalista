@@ -1308,24 +1308,30 @@ def etapa4_valuation():
                f"({lookback}). A fórmula de Ben Graham usa g={g_pct:.1f}% e Y={y_pct:.1f}%. Ajuste conforme seu cenário.")
 
 def render_company_header():
-    nome     = st.session_state.get("empresa_nome", "")
-    setor    = st.session_state.get("empresa_setor")
+    nome  = st.session_state.get("empresa_nome", st.session_state.get("empresa_escolhida", "—"))
+    setor = st.session_state.get("empresa_setor")
     subsetor = st.session_state.get("empresa_subsetor")
     segmento = st.session_state.get("empresa_segmento")
 
-    st.markdown(
-        f"""
-        <div style="padding: .25rem 0 1rem 0;">
-          <h1 style="margin:0; font-weight:800;">{nome}</h1>
-          <div style="color:#cbd5e1; margin-top: .25rem">
-            {('' if not setor else f'<span class="badge badge-blue" style="margin-right:.5rem;">{setor}</span>')}
-            {('' if not subsetor else f'<span class="badge badge-blue" style="margin-right:.5rem;">{subsetor}</span>')}
-            {('' if not segmento else f'<span class="badge badge-blue">{segmento}</span>')}
-          </div>
+    # HTML SEM ÍCONE – só o nome em cima e os badges abaixo
+    st.markdown(f"""
+    <div style="margin: 0 0 0.75rem 0;">
+        <h1 style="
+            margin: 0;
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: .5px;">
+            {nome.upper()}
+        </h1>
+
+        <div style="display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.5rem;">
+            {f'<span class="badge badge-blue">{setor}</span>' if setor else ''}
+            {f'<span class="badge badge-blue">{subsetor}</span>' if subsetor else ''}
+            {f'<span class="badge badge-blue">{segmento}</span>' if segmento else ''}
         </div>
-        """,
-        unsafe_allow_html=True
-    )
+    </div>
+    """, unsafe_allow_html=True)
+
 
 def render_single_with_tabs():
     render_company_header()
