@@ -695,6 +695,50 @@ def etapa3_analise_avancada():
     with c3: st.metric("Score Strength",  f"{row_self['Score Strength']*100:,.0f} / 100")
     with c4: st.metric("Score Momentum",  f"{row_self['Score Momentum']*100:,.0f} / 100")
 
+    # --- RADAR: Scores (empresa x mediana do setor) ---
+    st.markdown("#### 🕸️ Radar de Scores (0–100) — empresa vs. setor")
+
+    score_cols = ["Score Value", "Score Profit", "Score Strength", "Score Momentum"]
+
+    # seleciona linha da empresa
+    sel = df_scores[df_scores["Ticker"] == ticker]
+    if sel.empty:
+        st.info("Não foi possível localizar os scores da empresa selecionada.")
+    else:
+        row_self = sel.iloc[0]
+
+        # mediana do setor (usa todas as linhas exceto NaN)
+        med_setor = df_scores[score_cols].median(numeric_only=True)
+
+        # prepara vetores (0–100)
+        labels = ["Value", "Profit", "Strength", "Momentum"]
+        emp_vals = [(row_self[c] * 100) if pd.notna(row_self[c]) else np.nan for c in score_cols]
+        setor_vals = [(med_setor[c] * 100) if pd.notna(med_setor[c]) else np.nan for c in score_cols]
+
+        # remove categorias completamente ausentes (ambos NaN)
+        mask = [not (np.isnan(e) and np.isnan(s)) for e, s in zip(emp_vals, setor_vals)]
+        labels = [l for l, m in zip(labels, mask) if m]
+        emp_vals = [v for v, m in zip(emp_vals, mask) if m]
+        setor_vals = [v for v, m in zip(setor_vals, mask) if m]
+
+        if not labels:
+            st.info("Sem dados suficientes para montar o radar de scores.")
+        else:
+            import plotly.graph_objects as go
+            fig_radar = go.Figure()
+            fig_radar.add_trace(go.Scatterpolar(
+                r=emp_vals, theta=labels, fill="toself", name=ticker
+            ))
+            fig_radar.add_trace(go.Scatterpolar(
+                r=setor_vals, theta=labels, fill="toself", name="Setor (mediana)"
+            ))
+            fig_radar.update_layout(
+                polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
+                showlegend=True,
+                title="Radar de Scores (0–100)"
+            )
+            st.plotly_chart(fig_radar, use_container_width=True)
+
     # — Gráficos —
     st.markdown("#### 📊 Comparativos do setor")
     g1, g2 = st.columns(2)
