@@ -195,11 +195,27 @@ col_logo, col_title = st.columns([0.08, 0.92])
 with col_logo:
     st.markdown("<div style='font-size:44px'>📊</div>", unsafe_allow_html=True)
 with col_title:
-    st.markdown("""
-    <h1 style='margin-bottom:0'>Análise Fundamentalista de Ações</h1>
-    <p style='margin-top:6px;opacity:.8'>Escolha o modo de análise: <b>Individual</b> (uma empresa) ou <b>Screener</b> (ranking de várias).
-    </p>
-    """, unsafe_allow_html=True)
+    # ===============================
+    # Cabeçalho da página
+    # ===============================
+    modo = st.session_state.get("mode", "home")
+
+    if modo == "home":
+        st.markdown("""
+        <div style='text-align: center; margin-bottom: 1rem;'>
+            <h1 style='font-size:2.3rem; font-weight:700;'>📊 Análise Fundamentalista de Ações</h1>
+            <p style='color:#cbd5e1; font-size:1.05rem;'>
+                Escolha o modo de análise: <b>Individual</b> (uma empresa) ou <b>Screener</b> (ranking de várias).
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    elif modo == "single":
+        st.markdown("""
+        <div style='margin-bottom: 1rem;'>
+            <h1 style='font-size:2.3rem; font-weight:700;'>📊 Análise Fundamentalista de Ações</h1>
+        </div>
+        """, unsafe_allow_html=True)
 
 # ------------------------------
 # Sidebar de navegação
