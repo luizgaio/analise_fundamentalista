@@ -269,8 +269,6 @@ def render_home():
             """,
             unsafe_allow_html=True,
         )
-        if st.button("Começar", key="btn_individual", use_container_width=True):
-            set_mode("single")
 
     # ----------- CARD 2: Screener / Ranking -----------
     with c2:
@@ -285,9 +283,6 @@ def render_home():
             """,
             unsafe_allow_html=True,
         )
-        if st.button("Começar", key="btn_screener", use_container_width=True):
-            set_mode("screener")
-
 
 # ============================================================
 # MODO: ANÁLISE INDIVIDUAL
