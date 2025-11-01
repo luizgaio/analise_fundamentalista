@@ -574,8 +574,7 @@ def _fetch_peers_overview(tickers: list, period_prices: str = "2y"):
         except Exception:
             pass
     return pd.DataFrame(rows)
-    
- 
+  
 def etapa3_analise_avancada():
     st.markdown("### Análise Financeira")
     ticker = st.session_state.get("empresa_escolhida")
@@ -876,6 +875,220 @@ def etapa3_analise_avancada():
     # Guarda em sessão para eventuais próximas etapas
     st.session_state["etapa3_df_scores"] = df_scores
 
+# ============================================================
+# ETAPA 4 — Valuation (Target Price por múltiplos e Ben Graham)
+# ============================================================
+
+def etapa4_valuation():
+    st.markdown("### Etapa 4 — Valuation (Target Price)")
+
+    ticker = st.session_state.get("empresa_escolhida")
+    if not ticker:
+        st.info("Selecione e confirme uma empresa nas etapas anteriores.")
+        return
+
+    # -------------------------
+    # Parâmetros da avaliação
+    # -------------------------
+    c1, c2, c3 = st.columns([1, 1, 1.2])
+    with c1:
+        lookback = st.selectbox("Janela p/ histórico de preço", ["2y", "5y"], index=1,
+                                help="Usada p/ calcular P/L e P/VP históricos (média ao longo do período).")
+    with c2:
+        g_pct = st.number_input("g (crescimento anual, %)", value=5.0, step=0.5, min_value=-10.0, max_value=50.0,
+                                help="Usado na fórmula de Ben Graham: EPS × (8,5 + 2g) × (4,4/Y)")
+    with c3:
+        y_pct = st.number_input("Y (yield livre de risco, %)", value=10.0, step=0.5, min_value=1.0, max_value=30.0,
+                                help="Usado na fórmula de Ben Graham; 4,4 é o yield base da fórmula.")
+
+    # -------------------------
+    # Coleta básica
+    # -------------------------
+    # Reuso da Etapa 2 quando possível
+    info_df = st.session_state.get("empresa_info_df")
+    px_2 = st.session_state.get("empresa_px")
+
+    # Sempre buscamos uma série longa p/ histórico de múltiplos
+    try:
+        t = yf.Ticker(ticker)
+        info = t.info if info_df is None else None  # se já temos df_info, usamos abaixo
+        hist_long = t.history(period=lookback, interval="1d")
+        px_long = hist_long["Close"].dropna() if "Close" in hist_long else pd.Series(dtype=float)
+    except Exception:
+        info = {}
+        px_long = pd.Series(dtype=float)
+
+    # Último preço (referência)
+    try:
+        p_now = float(px_long.iloc[-1] if not px_long.empty else (px_2.iloc[-1] if px_2 is not None and not px_2.empty else np.nan))
+    except Exception:
+        p_now = np.nan
+
+    # EPS (trailing) e BVPS (book per share) — tentativas com fallback
+    def _num(v): 
+        try: return float(v)
+        except: return np.nan
+
+    if info_df is not None and not info_df.empty and "P/L" in info_df.columns and "P/VP" in info_df.columns:
+        # Podemos inferir EPS/BVPS por: EPS ≈ Price / (P/L), BVPS ≈ Price / (P/VP)
+        pl_now = _num(info_df.at[0, "P/L"])
+        pb_now = _num(info_df.at[0, "P/VP"])
+    else:
+        pl_now = _num((info or {}).get("trailingPE"))
+        pb_now = _num((info or {}).get("priceToBook"))
+
+    # Se priceToBook e trailingPE vieram vazios, tentamos ler 'bookValue' e 'trailingEps'
+    eps_ttm = _num((info or {}).get("trailingEps"))
+    bvps = _num((info or {}).get("bookValue"))
+
+    # Fallbacks a partir de múltiplos + preço atual
+    if (np.isnan(eps_ttm) or eps_ttm == 0) and (not np.isnan(pl_now)) and (pl_now > 0) and (not np.isnan(p_now)):
+        eps_ttm = p_now / pl_now
+    if (np.isnan(bvps) or bvps == 0) and (not np.isnan(pb_now)) and (pb_now > 0) and (not np.isnan(p_now)):
+        bvps = p_now / pb_now
+
+    # Segurança: evita divisões por zero/negativas
+    eps_ttm = eps_ttm if (not np.isnan(eps_ttm) and eps_ttm > 0) else np.nan
+    bvps    = bvps    if (not np.isnan(bvps) and bvps > 0) else np.nan
+
+    # -------------------------
+    # P/L e P/VP HISTÓRICOS (médias)
+    # -------------------------
+    # Observação: usamos EPS e BVPS atuais como aproximadores para derivar uma "média histórica" de múltiplos:
+    # PE_hist_avg ≈ média(Preço(t)/EPS_atual) ao longo da janela; idem para PB utilizando BVPS_atual.
+    if px_long is not None and not px_long.empty:
+        pe_hist_series = px_long / eps_ttm if (eps_ttm and not np.isnan(eps_ttm) and eps_ttm > 0) else pd.Series(dtype=float)
+        pb_hist_series = px_long / bvps    if (bvps    and not np.isnan(bvps)    and bvps    > 0) else pd.Series(dtype=float)
+
+        pe_hist_avg = float(np.nanmean(pe_hist_series)) if not pe_hist_series.empty else np.nan
+        pb_hist_avg = float(np.nanmean(pb_hist_series)) if not pb_hist_series.empty else np.nan
+    else:
+        pe_hist_avg, pb_hist_avg = np.nan, np.nan
+
+    # -------------------------
+    # P/L e P/VP — MEDIANA DO SETOR
+    # -------------------------
+    df_scores = st.session_state.get("etapa3_df_scores")
+    if df_scores is None or df_scores.empty:
+        pl_med_setor, pb_med_setor = np.nan, np.nan
+    else:
+        dfp = df_scores.copy()
+        dfp["P/L"]  = pd.to_numeric(dfp["P/L"], errors="coerce")
+        dfp["P/VP"] = pd.to_numeric(dfp["P/VP"], errors="coerce")
+        pl_med_setor = float(dfp["P/L"].median(skipna=True))
+        pb_med_setor = float(dfp["P/VP"].median(skipna=True))
+
+    # -------------------------
+    # Targets por múltiplos
+    # -------------------------
+    targets = []
+
+    def add_target(label, price):
+        if np.isnan(price) or price <= 0 or np.isnan(p_now):
+            up = np.nan
+            verdict = "—"
+        else:
+            up = (price / p_now) - 1.0
+            verdict = "Desconto (↑)" if up > 0 else "Prêmio (↓)"
+        targets.append({"Método": label, "Target": price, "Upside (%)": (up * 100.0) if not np.isnan(up) else np.nan, "Veredito": verdict})
+
+    # P/L histórico
+    if not np.isnan(eps_ttm) and not np.isnan(pe_hist_avg) and pe_hist_avg > 0:
+        add_target("P/L histórico", eps_ttm * pe_hist_avg)
+    else:
+        add_target("P/L histórico", np.nan)
+
+    # P/L mediana do setor
+    if not np.isnan(eps_ttm) and not np.isnan(pl_med_setor) and pl_med_setor > 0:
+        add_target("P/L mediana do setor", eps_ttm * pl_med_setor)
+    else:
+        add_target("P/L mediana do setor", np.nan)
+
+    # P/VP histórico
+    if not np.isnan(bvps) and not np.isnan(pb_hist_avg) and pb_hist_avg > 0:
+        add_target("P/VP histórico", bvps * pb_hist_avg)
+    else:
+        add_target("P/VP histórico", np.nan)
+
+    # P/VP mediana do setor
+    if not np.isnan(bvps) and not np.isnan(pb_med_setor) and pb_med_setor > 0:
+        add_target("P/VP mediana do setor", bvps * pb_med_setor)
+    else:
+        add_target("P/VP mediana do setor", np.nan)
+
+    # -------------------------
+    # Ben Graham
+    # P_graham = EPS × (8,5 + 2g) × (4,4 / Y)
+    # onde g e Y são percentuais (ex.: g=5% → 5; Y=10% → 10)
+    # -------------------------
+    if not np.isnan(eps_ttm):
+        g = float(g_pct)
+        Y = float(y_pct)
+        if Y <= 0: Y = 10.0
+        p_graham = eps_ttm * (8.5 + 2 * g) * (4.4 / Y)
+        add_target("Ben Graham", p_graham)
+    else:
+        add_target("Ben Graham", np.nan)
+
+    df_targets = pd.DataFrame(targets)
+
+    # -------------------------
+    # Ben Graham (clássica simplificada)
+    # VI = 22.5 × LPA × VPA
+    # -------------------------
+    if not np.isnan(eps_ttm) and not np.isnan(bvps):
+        vi_graham = 22.5 * eps_ttm * bvps
+        add_target("Ben Graham (22,5×LPA×VPA)", vi_graham)
+    else:
+        add_target("Ben Graham (22,5×LPA×VPA)", np.nan)
+
+    if not np.isnan(eps_ttm) and not np.isnan(bvps):
+        vi_graham_simplificada = 22.5 * eps_ttm * bvps
+        add_target("Ben Graham (22,5×LPA×VPA)", vi_graham_simplificada)
+
+    if not np.isnan(eps_ttm):
+        g = float(g_pct)
+        Y = float(y_pct)
+        if Y <= 0: Y = 10.0
+        vi_graham_ajustada = eps_ttm * (8.5 + 2 * g) * (4.4 / Y)
+        add_target("Ben Graham ajustada (8,5+2g)", vi_graham_ajustada)
+
+    # -------------------------
+    # Exibição
+    # -------------------------
+    k1, k2, k3 = st.columns(3)
+    with k1: st.metric("Preço atual", f"{p_now:,.2f}" if not np.isnan(p_now) else "—")
+    with k2: st.metric("EPS (ttm)",   f"{eps_ttm:,.2f}" if not np.isnan(eps_ttm) else "—")
+    with k3: st.metric("BVPS",        f"{bvps:,.2f}" if not np.isnan(bvps) else "—")
+
+    st.markdown("#### 🎯 Preços-alvo")
+    st.dataframe(df_targets, use_container_width=True, height=260)
+
+    # Gráfico: barras horizontais Target vs Preço Atual
+    if not df_targets.empty and not np.isnan(p_now):
+        plot_df = df_targets.copy()
+        plot_df["Target"] = pd.to_numeric(plot_df["Target"], errors="coerce")
+        plot_df = plot_df.dropna(subset=["Target"])
+        if not plot_df.empty:
+            fig_tp = go.Figure()
+            fig_tp.add_bar(y=plot_df["Método"], x=plot_df["Target"], orientation="h", name="Target")
+            fig_tp.add_vline(x=p_now, line_dash="dash", annotation_text=f"Preço atual: {p_now:,.2f}",
+                             annotation_position="top right")
+            fig_tp.update_layout(height=420, title="Targets por metodologia (linha tracejada = preço atual)",
+                                 xaxis_title="Preço", yaxis_title="")
+            st.plotly_chart(fig_tp, use_container_width=True)
+
+    # Export
+    st.download_button(
+        "⬇️ Baixar CSV (targets de valuation)",
+        data=df_targets.to_csv(index=False).encode("utf-8"),
+        file_name=f"{ticker}_valuation_targets.csv",
+        mime="text/csv"
+    )
+
+    st.caption("Notas: P/L e P/VP históricos são aproximados usando EPS/BVPS atuais como denominadores sobre a série de preços "
+               f"({lookback}). A fórmula de Ben Graham usa g={g_pct:.1f}% e Y={y_pct:.1f}%. Ajuste conforme seu cenário.")
+
 
 def render_single_layout():
     st.subheader("🔎 Análise Individual")
@@ -885,7 +1098,8 @@ def render_single_layout():
         etapa2_coleta_dados()     # Etapa 2
         st.markdown("---")
         etapa3_analise_avancada() # Etapa 3
-
+        st.markdown("---")
+        etapa4_valuation()        # Etapa 4  ✅ NOVA
 
 def render_screener_layout():
     st.subheader("📈 Screener / Ranking — layout")
