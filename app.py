@@ -243,8 +243,7 @@ def render_home():
               <span class='badge badge-blue'>Modo 1</span>
               <h3>🔎 Análise Individual</h3>
               <p>Estude profundamente uma empresa: múltiplos, rentabilidade, endividamento, histórico de preços e comparativos de setor.</p>
-              <a class='btn btn-primary' href='?""" + urlencode({"mode":"single"}) + """'>Começar</a>
-              <a class='btn btn-ghost' href='?""" + urlencode({"mode":"single"}) + """'>Ver layout</a>
+              <a class='btn btn-primary' href='?""" + urlencode({"mode":"single"}) + """'>Começar</a>              
             </div>
             """,
             unsafe_allow_html=True,
@@ -256,18 +255,12 @@ def render_home():
               <span class='badge badge-green'>Modo 2</span>
               <h3>📈 Screener / Ranking</h3>
               <p>Monte um ranking de empresas por múltiplos e qualidade. Filtros por setor, pesos customizados e exportação para CSV.</p>
-              <a class='btn btn-primary' href='?""" + urlencode({"mode":"screener"}) + """'>Começar</a>
-              <a class='btn btn-ghost' href='?""" + urlencode({"mode":"screener"}) + """'>Ver layout</a>
+              <a class='btn btn-primary' href='?""" + urlencode({"mode":"screener"}) + """'>Começar</a>              
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-    st.markdown("""
-    <hr class='soft'/>
-    <small style='opacity:.7'>Versão layout • Próximas etapas: conexão com dados (yfinance), seleção por setor (ClassifSetorial.xlsx), 
-    cálculo de scores e gráficos interativos.</small>
-    """, unsafe_allow_html=True)
 
 # ============================================================
 # MODO: ANÁLISE INDIVIDUAL
