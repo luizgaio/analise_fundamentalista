@@ -694,12 +694,12 @@ def etapa2_coleta_dados():
         st.info("Selecione uma empresa na Etapa 1 para continuar.")
         return
 
-    # ================================
-    # Parâmetros e coleta de dados
-    # ================================
-    cols = st.columns([1,1,1.2])
+    # -------------------------------
+    # Parâmetros e coleta
+    # -------------------------------
+    cols = st.columns([1, 1, 1.2])
     with cols[0]:
-        period_prices = st.selectbox("Período de preços", ["1y","2y","5y"], index=1)
+        period_prices = st.selectbox("Período de preços", ["1y", "2y", "5y"], index=1)
     with cols[1]:
         show_benchmark = st.toggle("Comparar com Ibovespa", value=True, help="Usa ^BVSP como benchmark.")
     with cols[2]:
@@ -712,16 +712,17 @@ def etapa2_coleta_dados():
         st.error("Não foi possível obter preços do ativo selecionado.")
         return
 
-    # ================================
-    # Overview (múltiplos e margens)
-    # ================================
+    # -------------------------------
+    # Overview (info -> dataframe)
+    # -------------------------------
     df_info = _build_overview_from_info(info)
     nome = df_info.at[0, "Empresa"] if not df_info.empty else ticker
     st.session_state["empresa_nome_completo"] = nome
+    r = df_info.iloc[0] if not df_info.empty else pd.Series(dtype=float)
 
-    # ================================
-    # Painel 7 colunas com grupos
-    # ================================
+    # -------------------------------
+    # Helpers visuais
+    # -------------------------------
     def fmt_money_brl_bi(v):
         return "—" if (v is None or np.isnan(v)) else f"R$ {v/1e9:,.1f} bi"
 
@@ -731,75 +732,85 @@ def etapa2_coleta_dados():
     def fmt_pct(v, d=1):
         return "—" if (v is None or np.isnan(v)) else f"{v:.{d}f}%"
 
-    r = df_info.iloc[0] if not df_info.empty else pd.Series(dtype=float)
+    def box(label: str, value: str | float):
+        # Um "card" compacto: título pequeno e valor grande
+        with st.container(border=True):
+            st.caption(label)
+            st.markdown(f"<div style='font-size:1.8rem; font-weight:700; line-height:1'>{value}</div>", unsafe_allow_html=True)
 
-    c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
+    # ==========================================================
+    # LINHA 1 — Valor da Empresa (2 boxes)
+    # ==========================================================
+    st.subheader("Valor da Empresa")
+    c1, c2 = st.columns(2)
+    with c1: box("Valor de Mercado", fmt_money_brl_bi(r.get("Market Cap")))
+    with c2: box("Enterprise Value", fmt_money_brl_bi(r.get("Enterprise Value")))
 
-    with c1:
-        st.markdown("### Valor da Empresa")
-        st.markdown(
-            f"- **Valor de Mercado**: {fmt_money_brl_bi(r.get('Market Cap'))}\n"
-            f"- **Enterprise Value**: {fmt_money_brl_bi(r.get('Enterprise Value'))}"
-        )
+    # ==========================================================
+    # LINHA 2 — Análise de Mercado (4 boxes)
+    # ==========================================================
+    st.subheader("Análise de Mercado")
+    c1, c2, c3, c4 = st.columns(4)
+    with c1: box("P/L (Trailing)", fmt_num(r.get("P/L (Trailing)")))
+    with c2: box("P/L (Forward)",  fmt_num(r.get("P/L (Forward)")))
+    with c3: box("P/VP",           fmt_num(r.get("P/VP")))
+    with c4: box("PEG",            fmt_num(r.get("PEG")))
 
-    with c2:
-        st.markdown("### Análise de Mercado")
-        st.markdown(
-            f"- **P/L (Trailing)**: {fmt_num(r.get('P/L (Trailing)'))}\n"
-            f"- **P/L (Forward)**: {fmt_num(r.get('P/L (Forward)'))}\n"
-            f"- **P/VP**: {fmt_num(r.get('P/VP'))}\n"
-            f"- **PEG**: {fmt_num(r.get('PEG'))}"
-        )
+    # ==========================================================
+    # LINHA 3 — Análise de Mercado (cont.) (4 boxes)
+    # ==========================================================
+    st.subheader("Análise de Mercado (cont.)")
+    c1, c2, c3, c4 = st.columns(4)
+    with c1: box("EV/EBITDA",  fmt_num(r.get("EV/EBITDA")))
+    with c2: box("EV/EBIT",    fmt_num(r.get("EV/EBIT (calc)")))
+    with c3: box("EV/Revenue", fmt_num(r.get("EV/Revenue")))
+    with c4: box("P/Sales",    fmt_num(r.get("P/Sales")))
 
-    with c3:
-        st.markdown("### Análise de Mercado (cont.)")
-        st.markdown(
-            f"- **EV/EBITDA**: {fmt_num(r.get('EV/EBITDA'))}\n"
-            f"- **EV/EBIT**: {fmt_num(r.get('EV/EBIT (calc)'))}\n"
-            f"- **EV/Revenue**: {fmt_num(r.get('EV/Revenue'))}\n"
-            f"- **P/Sales**: {fmt_num(r.get('P/Sales'))}"
-        )
+    # ==========================================================
+    # LINHA 4 — Rentabilidade e Risco (4 boxes)
+    # ==========================================================
+    st.subheader("Análise de Rentabilidade e Risco")
+    c1, c2, c3, c4 = st.columns(4)
+    with c1: box("ROE",            fmt_pct(r.get("ROE (%)")))
+    with c2: box("ROA",            fmt_pct(r.get("ROA (%)")))
+    with c3: box("Dividend Yield", fmt_pct(r.get("Dividend Yield (%)")))
+    with c4: box("Beta",           fmt_num(r.get("Beta")))
 
-    with c4:
-        st.markdown("### Rentabilidade e Risco")
-        st.markdown(
-            f"- **ROE**: {fmt_pct(r.get('ROE (%)'))}\n"
-            f"- **ROA**: {fmt_pct(r.get('ROA (%)'))}\n"
-            f"- **Dividend Yield**: {fmt_pct(r.get('Dividend Yield (%)'))}\n"
-            f"- **Beta**: {fmt_num(r.get('Beta'))}"
-        )
+    # ==========================================================
+    # LINHA 5 — Eficiência (4 boxes)
+    # ==========================================================
+    st.subheader("Análise de Eficiência")
+    c1, c2, c3, c4 = st.columns(4)
+    with c1: box("Margem Bruta",    fmt_pct(r.get("Margem Bruta (%)")))
+    with c2: box("Margem EBIT",     fmt_pct(r.get("Margem EBIT (%)")))
+    with c3: box("Margem EBITDA",   fmt_pct(r.get("Margem EBITDA (%)")))
+    with c4: box("Margem Líquida",  fmt_pct(r.get("Margem Líquida (%)")))
 
-    with c5:
-        st.markdown("### Eficiência")
-        st.markdown(
-            f"- **Margem Bruta**: {fmt_pct(r.get('Margem Bruta (%)'))}\n"
-            f"- **Margem EBIT**: {fmt_pct(r.get('Margem EBIT (%)'))}\n"
-            f"- **Margem EBITDA**: {fmt_pct(r.get('Margem EBITDA (%)'))}\n"
-            f"- **Margem Líquida**: {fmt_pct(r.get('Margem Líquida (%)'))}"
-        )
+    # ==========================================================
+    # LINHA 6 — Endividamento (2 boxes)
+    # ==========================================================
+    st.subheader("Endividamento")
+    c1, c2 = st.columns(2)
+    with c1: box("Dívida Líquida/PL",   fmt_num(r.get("Net Debt/Equity")))
+    with c2: box("Dívida Líquida/Ativo", fmt_num(r.get("Net Debt/Assets")))
 
-    with c6:
-        st.markdown("### Endividamento")
-        st.markdown(
-            f"- **Dívida Líquida/PL**: {fmt_num(r.get('Net Debt/Equity'))}\n"
-            f"- **Dívida Líquida/Ativo**: {fmt_num(r.get('Net Debt/Assets'))}"
-        )
+    # ==========================================================
+    # LINHA 7 — Índices de Liquidez (4 boxes)
+    # ==========================================================
+    st.subheader("Índices de Liquidez")
+    c1, c2, c3, c4 = st.columns(4)
+    with c1: box("Liquidez Corrente", fmt_num(r.get("Liquidez Corrente")))
+    with c2: box("Liquidez Seca",     fmt_num(r.get("Liquidez Seca")))
+    with c3: box("Giro do Ativo",     fmt_num(r.get("Giro do Ativo")))
+    with c4: box("Giro Estoque",      fmt_num(r.get("Giro de Estoque")))
 
-    with c7:
-        st.markdown("### Índices de Liquidez")
-        st.markdown(
-            f"- **Liquidez Corrente**: {fmt_num(r.get('Liquidez Corrente'))}\n"
-            f"- **Liquidez Seca**: {fmt_num(r.get('Liquidez Seca'))}\n"
-            f"- **Giro do Ativo**: {fmt_num(r.get('Giro do Ativo'))}\n"
-            f"- **Giro Estoque**: {fmt_num(r.get('Giro de Estoque'))}"
-        )
-
-    # ================================
-    # Métricas rápidas e momentum
-    # ================================
+    # ==========================================================
+    # Métricas rápidas + Momentum (mantidos)
+    # ==========================================================
+    st.markdown("---")
     m1, m2 = st.columns(2)
     with m1: st.metric("P/L (Trailing)", fmt_num(r.get("P/L (Trailing)")))
-    with m2: st.metric("ROE (%)", fmt_pct(r.get("ROE (%)")))
+    with m2: st.metric("ROE (%)",        fmt_pct(r.get("ROE (%)")))
 
     ret_1m  = _momentum_from_series(px, TRADING_DAYS["1M"])
     ret_3m  = _momentum_from_series(px, TRADING_DAYS["3M"])
@@ -807,9 +818,9 @@ def etapa2_coleta_dados():
     ret_12m = _momentum_from_series(px, TRADING_DAYS["12M"])
 
     m1, m2, m3, m4 = st.columns(4)
-    with m1: st.metric("Retorno 1M", f"{ret_1m*100:,.1f}%" if not np.isnan(ret_1m) else "—")
-    with m2: st.metric("Retorno 3M", f"{ret_3m*100:,.1f}%" if not np.isnan(ret_3m) else "—")
-    with m3: st.metric("Retorno 6M", f"{ret_6m*100:,.1f}%" if not np.isnan(ret_6m) else "—")
+    with m1: st.metric("Retorno 1M",  f"{ret_1m*100:,.1f}%"  if not np.isnan(ret_1m)  else "—")
+    with m2: st.metric("Retorno 3M",  f"{ret_3m*100:,.1f}%" if not np.isnan(ret_3m)  else "—")
+    with m3: st.metric("Retorno 6M",  f"{ret_6m*100:,.1f}%" if not np.isnan(ret_6m)  else "—")
     with m4: st.metric("Retorno 12M", f"{ret_12m*100:,.1f}%" if not np.isnan(ret_12m) else "—")
 
     st.markdown("---")
