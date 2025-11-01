@@ -211,11 +211,8 @@ with col_title:
         """, unsafe_allow_html=True)
 
     elif modo == "single":
-        st.markdown("""
-        <div style='margin-bottom: 1rem;'>
-            <h1 style='font-size:2.3rem; font-weight:700;'>📊 Análise Fundamentalista de Ações</h1>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("<div style='height:.25rem'></div>", unsafe_allow_html=True)
+
 
 # ------------------------------
 # Sidebar de navegação
@@ -1346,11 +1343,10 @@ def render_single_with_tabs():
 
 
 def render_single_layout():
-    st.subheader("🔎 Análise Individual")
-    sel = render_sidebar_selector()   # ← seleção na sidebar
+    sel = render_sidebar_selector()   # seleção na sidebar
     if sel and sel.get("ticker"):
         st.markdown("---")
-        render_single_with_tabs()     # ← conteúdo em abas
+        render_single_with_tabs()
     else:
         st.info("Escolha uma empresa na barra lateral para iniciar a análise.")
 
