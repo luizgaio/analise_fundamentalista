@@ -16,18 +16,14 @@ import plotly.graph_objects as go
 import plotly.express as px
 import plotly.io as pio
 pio.templates.default = "plotly_dark"
+def apply_dark_fig(fig):
+    return fig.update_layout(
+        paper_bgcolor="#0f172a", plot_bgcolor="#0f172a", font_color="#e2e8f0"
+    )
 import re
 import pandas as pd
 import streamlit as st
 from typing import Tuple, Dict
-
-def apply_dark_fig(fig):
-    fig.update_layout(
-        paper_bgcolor="#0f172a", plot_bgcolor="#0f172a",
-        font_color="#e2e8f0"
-    )
-    return fig
-
 
 # ============================================================
 # ETAPA 2 — Coleta e preparação de dados (yfinance)
@@ -108,93 +104,39 @@ st.set_page_config(
 def inject_base_styles():
     st.markdown("""
     <style>
-      /* ---------- Fundos globais ---------- */
-      :root {
-        --bg: #0f172a;        /* slate-900 */
-        --bg-soft: #0b1220;   /* sidebar/caixas */
-        --text: #e2e8f0;      /* slate-200 */
-        --text-dim: #cbd5e1;  /* slate-300 */
-        --border: rgba(255,255,255,0.08);
-        --card: rgba(255,255,255,0.06);
-        --accent: #60a5fa;    /* azul */
+      :root{
+        --bg:#0f172a; --bg2:#0b1220; --tx:#e2e8f0; --tx2:#cbd5e1; --bd:rgba(255,255,255,.08);
       }
-      html, body, .stApp, div[data-testid="stAppViewContainer"] {
-        background: var(--bg) !important; color: var(--text) !important;
-      }
-      .block-container { background: transparent !important; }
+      /* Garantias: containers e sidebar */
+      html,body,.stApp,div[data-testid="stAppViewContainer"]{background:var(--bg)!important;color:var(--tx)!important;}
+      section[data-testid="stSidebar"]{background:var(--bg2)!important;border-right:1px solid var(--bd)}
+      .block-container{background:transparent!important}
 
-      /* ---------- Sidebar ---------- */
-      section[data-testid="stSidebar"] {
-        background: var(--bg-soft) !important; color: var(--text) !important;
-        border-right: 1px solid var(--border);
-      }
+      /* DataFrame / Table (head e body) */
+      .stDataFrame, .stTable{background:var(--bg2)!important;border:1px solid var(--bd)!important;border-radius:10px}
+      .stDataFrame thead, .stTable thead{background:var(--bg)!important;color:var(--tx)!important;}
+      .stDataFrame tbody, .stTable tbody{color:var(--tx)!important;}
 
-      /* ---------- Títulos e texto ---------- */
-      h1, h2, h3, h4, h5, h6 { color: var(--text) !important; }
-      p, label, span, div, small, code, kbd, pre { color: var(--text-dim); }
-      a { color: var(--accent); }
+      /* Select / Dropdown (BaseWeb) */
+      div[data-baseweb="select"]{background:var(--bg2)!important;color:var(--tx)!important;border:1px solid var(--bd)!important;}
+      div[role="listbox"]{background:var(--bg2)!important;color:var(--tx)!important;border:1px solid var(--bd)!important;}
+      div[role="option"]{color:var(--tx)!important;}
+      input::placeholder{color:var(--tx2)!important;}
 
-      /* ---------- Cards / caixas padrão ---------- */
-      .stAlert, .stMarkdown div, .st-emotion-cache-ocqkz7, .st-emotion-cache-1y4p8pa,
-      .st-emotion-cache-16idsys, .st-emotion-cache-7ym5gk, .st-emotion-cache-1wmy9hl {
-        background: var(--card) !important; color: var(--text) !important;
-        border: 1px solid var(--border) !important; border-radius: 14px;
-      }
+      /* Expander & Tabs */
+      .st-expander{background:var(--bg2)!important;border:1px solid var(--bd)!important;border-radius:12px}
+      .stTabs [data-baseweb="tab-list"]{background:var(--bg2)!important;border-radius:10px;border:1px solid var(--bd)}
+      .stTabs [data-baseweb="tab"]{color:var(--tx2)!important}
+      .stTabs [aria-selected="true"]{color:var(--tx)!important;border-color:#60a5fa!important}
 
-      /* ---------- DataFrame/Tabela ---------- */
-      .stDataFrame, .stTable {
-        background: var(--bg-soft) !important; color: var(--text) !important;
-        border: 1px solid var(--border) !important; border-radius: 10px;
-      }
-      .stDataFrame thead, .stTable thead { background: var(--bg) !important; color: var(--text) !important; }
-      .stDataFrame tbody, .stTable tbody { color: var(--text) !important; }
-      .stDataFrame [data-testid="stHorizontalBlock"] { background: transparent !important; }
+      /* Metrics */
+      div[data-testid="stMetric"]{background:rgba(255,255,255,.06)!important;border:1px solid var(--bd);border-radius:12px}
+      div[data-testid="stMetricValue"], div[data-testid="stMetricLabel"]{color:var(--tx)!important}
 
-      /* ---------- Expanders / tabs ---------- */
-      details, .st-expander, .stTabs [data-baseweb="tab-list"] {
-        background: var(--bg-soft) !important; color: var(--text) !important;
-        border: 1px solid var(--border) !important; border-radius: 12px;
-      }
-      .stTabs [data-baseweb="tab"] { color: var(--text-dim) !important; }
-      .stTabs [aria-selected="true"] { color: var(--text) !important; border-color: var(--accent) !important; }
-
-      /* ---------- Inputs (select/multiselect/number/slider) ---------- */
-      /* BaseWeb (usado pelo Streamlit) */
-      div[data-baseweb="select"], div[role="listbox"], input, textarea {
-        color: var(--text) !important; background: var(--bg-soft) !important;
-      }
-      div[role="listbox"] div { color: var(--text) !important; }
-      .stNumberInput, .stTextInput, .stSelectbox, .stMultiSelect, .stDateInput {
-        color: var(--text) !important;
-      }
-      .st-bb, .st-c2, .st-bz { border-color: var(--border) !important; } /* bordas de inputs */
-
-      /* Radio/checkbox labels */
-      label[data-baseweb="radio"], label[data-baseweb="checkbox"] { color: var(--text) !important; }
-
-      /* ---------- Metrics ---------- */
-      div[data-testid="stMetric"] { background: var(--card) !important; border: 1px solid var(--border); border-radius: 12px; padding: 8px; }
-      div[data-testid="stMetricValue"] { color: var(--text) !important; }
-      div[data-testid="stMetricDelta"] { color: var(--text-dim) !important; }
-
-      /* ---------- Botões ---------- */
-      button[kind="secondary"], .stButton>button {
-        color: var(--text) !important; background: var(--bg-soft) !important; border: 1px solid var(--border) !important;
-      }
-
-      /* ---------- Markdown tabelas / code ---------- */
-      .markdown-text-container table { background: var(--bg-soft) !important; }
-      pre, code { background: #0b1020 !important; color: var(--text) !important; }
-
-      /* ---------- Tooltips / help ---------- */
-      .stTooltipContent { background: var(--bg-soft) !important; color: var(--text) !important; }
-
-      /* ---------- Remove qualquer faixa branca sobrando ---------- */
-      .stApp [class^="viewerBadge"], .stApp [class*="viewerBadge"] { background: transparent !important; }
+      /* Botões */
+      .stButton>button{background:var(--bg2)!important;color:var(--tx)!important;border:1px solid var(--bd)!important;}
     </style>
     """, unsafe_allow_html=True)
-
-inject_base_styles()
 
 
 
