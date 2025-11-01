@@ -375,7 +375,7 @@ def render_sidebar_selector():
         df_valid = df_class[df_class["TickerFinal"]!=""].copy()
 
         modo = st.radio("Como deseja selecionar?",
-                        ["Por lista de tickers", "Por Setor → Subsetor → Segmento → Empresa"],
+                        ["Por lista de tickers", "Por Setor"],
                         index=0)
 
         chosen = {"ticker": None, "empresa": None, "setor": None, "subsetor": None, "segmento": None}
