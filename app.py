@@ -155,6 +155,72 @@ def _build_overview_from_info(info: dict) -> pd.DataFrame:
 
     return df
 
+def build_historical_fundamentals(ticker: str, max_years: int = 10) -> pd.DataFrame:
+    """Baixa dados históricos do Yahoo Finance e retorna indicadores (linhas) x anos (colunas)."""
+    tk = yf.Ticker(ticker)
+
+    # Coleta demonstrativos financeiros
+    inc = tk.income_stmt
+    bal = tk.balance_sheet
+    cfs = tk.cashflow
+
+    # Transpõe e converte índice para ano
+    dfs = []
+    for df in [inc, bal, cfs]:
+        if df is not None and not df.empty:
+            df = df.T
+            df.index = pd.to_datetime(df.index).year
+            dfs.append(df)
+
+    if not dfs:
+        return pd.DataFrame()
+
+    df_all = pd.concat(dfs, axis=1)
+
+    # Seleciona colunas principais (presentes no Yahoo Finance)
+    cols = [
+        "Total Revenue", "Gross Profit", "Operating Income", "Net Income",
+        "Total Assets", "Total Liab", "Total Stockholder Equity",
+        "Operating Cash Flow", "Capital Expenditures"
+    ]
+    df_sel = df_all[[c for c in cols if c in df_all.columns]].copy()
+
+    # Calcula indicadores derivados
+    df_sel["ROE (%)"] = (df_sel["Net Income"] / df_sel["Total Stockholder Equity"]) * 100
+    df_sel["ROA (%)"] = (df_sel["Net Income"] / df_sel["Total Assets"]) * 100
+    df_sel["Margem Líquida (%)"] = (df_sel["Net Income"] / df_sel["Total Revenue"]) * 100
+    df_sel["Margem Operacional (%)"] = (df_sel["Operating Income"] / df_sel["Total Revenue"]) * 100
+    df_sel["Dívida/Patrimônio"] = (df_sel["Total Liab"] / df_sel["Total Stockholder Equity"])
+
+    # Mantém apenas os últimos anos
+    df_sel = df_sel.tail(max_years)
+
+    # Transpõe para que as LINHAS sejam indicadores e colunas sejam anos
+    df_final = df_sel.T.round(2)
+    df_final.columns = [str(c) for c in df_final.columns]  # anos como string
+
+    # Renomeia índices para português (opcional)
+    mapping = {
+        "Total Revenue": "Receita Líquida",
+        "Gross Profit": "Lucro Bruto",
+        "Operating Income": "Lucro Operacional",
+        "Net Income": "Lucro Líquido",
+        "Total Assets": "Ativos Totais",
+        "Total Liab": "Passivos Totais",
+        "Total Stockholder Equity": "Patrimônio Líquido",
+        "Operating Cash Flow": "Fluxo de Caixa Operacional",
+        "Capital Expenditures": "Capex",
+        "ROE (%)": "ROE (%)",
+        "ROA (%)": "ROA (%)",
+        "Margem Líquida (%)": "Margem Líquida (%)",
+        "Margem Operacional (%)": "Margem Operacional (%)",
+        "Dívida/Patrimônio": "Dívida/Patrimônio"
+    }
+    df_final.rename(index=mapping, inplace=True)
+
+    return df_final
+
+
 # ------------------------------
 # Configuração básica da página
 # ------------------------------
@@ -164,6 +230,8 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+
 
 # ====== THEME / STYLES (dark consistente em toda a página) ======
 def inject_base_styles():
@@ -879,6 +947,19 @@ def etapa2_coleta_dados():
         use_container_width=True,
         height=420
     )
+    
+    st.markdown("### Indicadores do Yahoo Finance (Histórico de 10 anos)")
+
+    df_hist = build_historical_fundamentals(ticker)
+    if df_hist.empty:
+        st.warning("⚠️ Dados históricos indisponíveis para este ativo.")
+    else:
+        st.dataframe(
+            df_hist.style.format(precision=2).background_gradient(cmap="Blues", axis=None),
+            use_container_width=True,
+            height=500,
+        )
+
 
     # Download CSV
     csv_bytes = df_info.to_csv(index=False).encode("utf-8")
