@@ -192,8 +192,7 @@ st.markdown(CARD_CSS, unsafe_allow_html=True)
 # Cabeçalho
 # ------------------------------
 col_logo, col_title = st.columns([0.08, 0.92])
-#with col_logo:
-#    st.markdown("<div style='font-size:44px'>📊</div>", unsafe_allow_html=True)
+
 with col_title:
     # ===============================
     # Cabeçalho da página
@@ -203,7 +202,7 @@ with col_title:
     if modo == "home":
         st.markdown("""
         <div style='text-align: center; margin-bottom: 1rem;'>
-            <h1 style='font-size:2.3rem; font-weight:700;'>📊 Análise Fundamentalista de Ações</h1>
+            <h1 style='font-size:2.3rem; font-weight:700;'>Análise Fundamentalista de Ações</h1>
             <p style='color:#cbd5e1; font-size:1.05rem;'>
                 Escolha o modo de análise: <b>Individual</b> (uma empresa) ou <b>Screener</b> (ranking de várias).
             </p>
