@@ -236,6 +236,8 @@ with st.sidebar:
 def render_home():
     st.markdown("---")
     c1, c2 = st.columns(2)
+
+    # ----------- CARD 1: Análise Individual -----------
     with c1:
         st.markdown(
             """
@@ -243,11 +245,14 @@ def render_home():
               <span class='badge badge-blue'>Modo 1</span>
               <h3>🔎 Análise Individual</h3>
               <p>Estude profundamente uma empresa: múltiplos, rentabilidade, endividamento, histórico de preços e comparativos de setor.</p>
-              <a class='btn btn-primary' href='?""" + urlencode({"mode":"single"}) + """'>Começar</a>              
             </div>
             """,
             unsafe_allow_html=True,
         )
+        if st.button("Começar", key="btn_individual", use_container_width=True):
+            set_mode("single")
+
+    # ----------- CARD 2: Screener / Ranking -----------
     with c2:
         st.markdown(
             """
@@ -255,11 +260,13 @@ def render_home():
               <span class='badge badge-green'>Modo 2</span>
               <h3>📈 Screener / Ranking</h3>
               <p>Monte um ranking de empresas por múltiplos e qualidade. Filtros por setor, pesos customizados e exportação para CSV.</p>
-              <a class='btn btn-primary' href='?""" + urlencode({"mode":"screener"}) + """'>Começar</a>              
             </div>
             """,
             unsafe_allow_html=True,
         )
+        if st.button("Começar", key="btn_screener", use_container_width=True):
+            set_mode("screener")
+
 
 
 # ============================================================
