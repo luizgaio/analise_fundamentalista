@@ -192,8 +192,8 @@ st.markdown(CARD_CSS, unsafe_allow_html=True)
 # Cabeçalho
 # ------------------------------
 col_logo, col_title = st.columns([0.08, 0.92])
-with col_logo:
-    st.markdown("<div style='font-size:44px'>📊</div>", unsafe_allow_html=True)
+#with col_logo:
+#    st.markdown("<div style='font-size:44px'>📊</div>", unsafe_allow_html=True)
 with col_title:
     # ===============================
     # Cabeçalho da página
