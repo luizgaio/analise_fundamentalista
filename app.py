@@ -988,7 +988,7 @@ def etapa3_analise_avancada():
 # ============================================================
 
 def etapa4_valuation():
-    st.markdown("### Etapa 4 — Valuation (Target Price)")
+    st.markdown("### Valuation (Target Price)")
 
     ticker = st.session_state.get("empresa_escolhida")
     if not ticker:
