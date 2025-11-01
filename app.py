@@ -268,6 +268,32 @@ def inject_base_styles():
         color: var(--tx)!important;
         border: 1px solid var(--bd)!important;
       }
+    /* ====== Custom Boxes ====== */
+    .custom-box {
+      background-color: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 0.8rem 0.5rem;
+      text-align: center;
+      margin-bottom: 0.5rem;
+      transition: all 0.2s ease-in-out;
+    }
+    .custom-box:hover {
+      background-color: rgba(255,255,255,0.08);
+      transform: translateY(-2px);
+    }
+    .custom-label {
+      font-size: 0.9rem;
+      color: var(--tx2);
+      margin-bottom: 0.25rem;
+    }
+    .custom-value {
+      font-size: 1.6rem;
+      color: var(--tx);
+      font-weight: 400; /* sem negrito */
+      text-align: center;
+      line-height: 1.2;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -733,10 +759,12 @@ def etapa2_coleta_dados():
         return "—" if (v is None or np.isnan(v)) else f"{v:.{d}f}%"
 
     def box(label: str, value: str | float):
-        # Um "card" compacto: título pequeno e valor grande
-        with st.container(border=True):
-            st.caption(label)
-            st.markdown(f"<div style='font-size:1.8rem; font-weight:700; line-height:1'>{value}</div>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="custom-box">
+            <div class="custom-label">{label}</div>
+            <div class="custom-value">{value}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     # ==========================================================
     # LINHA 1 — Valor da Empresa (2 boxes)
