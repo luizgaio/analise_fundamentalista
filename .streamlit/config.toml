@@ -1,0 +1,6 @@
+[theme]
+base                           = "dark"
+primaryColor                   = "#60a5fa"   # azul
+backgroundColor                = "#0f172a"   # fundo principal
+secondaryBackgroundColor       = "#0b1220"   # caixas/side
+textColor                      = "#e2e8f0"   # texto claro
