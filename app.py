@@ -1411,7 +1411,10 @@ def etapa4_valuation():
                f"({lookback}). A fórmula de Ben Graham usa g={g_pct:.1f}% e Y={y_pct:.1f}%. Ajuste conforme seu cenário.")
 
 def render_company_header():
+    # título principal (mantém como está hoje)
     titulo = st.session_state.get("empresa_nome", st.session_state.get("empresa_escolhida", "—"))
+
+    # nome completo (mostra abaixo, se existir; senão reusa o título)
     nome_completo = st.session_state.get("empresa_nome_completo") or titulo
 
     setor    = (st.session_state.get("empresa_setor") or "").upper()
@@ -1419,20 +1422,20 @@ def render_company_header():
     segmento = (st.session_state.get("empresa_segmento") or "").upper()
 
     st.markdown(f"""
-    <div style="margin-top:-2rem; margin-bottom:1.2rem;">
-      <h1 style="margin:0; font-size:3rem; font-weight:800; letter-spacing:.5px;">
-        {titulo.upper()}
-      </h1>
-      <h3 style="margin:.3rem 0 .8rem 0; font-size:1.3rem; font-weight:400; color:#cbd5e1;">
-        {nome_completo}
-      </h3>
-      <div style="display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.25rem;">
-        {f'<span class="badge badge-blue">{setor}</span>' if setor else ''}
-        {f'<span class="badge badge-blue">{subsetor}</span>' if subsetor else ''}
-        {f'<span class="badge badge-blue">{segmento}</span>' if segmento else ''}
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+<div style="margin:0 0 1.2rem 0;">
+  <h1 style="margin:0; font-size:2.5rem; font-weight:700; letter-spacing:.5px; line-height:1.1;">
+    {nome_completo}
+  </h1>
+  <h2 style="margin:.2rem 0 .6rem 0; font-size:1.1rem; font-weight:400; color:#cbd5e1;">
+    {titulo}
+  </h2>
+  <div style="display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.25rem;">
+    {f'<span class="badge badge-blue">{setor}</span>' if setor else ''}
+    {f'<span class="badge badge-blue">{subsetor}</span>' if subsetor else ''}
+    {f'<span class="badge badge-blue">{segmento}</span>' if segmento else ''}
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
 
 def render_single_with_tabs():
