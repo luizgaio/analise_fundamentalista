@@ -76,64 +76,83 @@ def _pct(v):
     return _num(v) * 100.0 if v is not None else np.nan
 
 def _build_overview_from_info(info: dict) -> pd.DataFrame:
-    """
-    Monta um DF com indicadores do yfinance.info.
-    Muitos campos podem vir ausentes; tratamos como NaN.
-    """
-    # bases para cálculos
-    ev     = _num(info.get("enterpriseValue"))
-    ebit   = _num(info.get("ebit")) if info.get("ebit") is not None else _num(info.get("operatingIncome"))
+    ev          = _num(info.get("enterpriseValue"))
+    ebit        = _num(info.get("ebit")) if info.get("ebit") is not None else _num(info.get("operatingIncome"))
     total_debt  = _num(info.get("totalDebt"))
     total_cash  = _num(info.get("totalCash"))
     net_debt    = (total_debt - total_cash) if (not np.isnan(total_debt) and not np.isnan(total_cash)) else np.nan
     equity      = _num(info.get("totalStockholderEquity"))
     total_assets= _num(info.get("totalAssets"))
 
+    trailing_pe = _num(info.get("trailingPE"))
+    forward_pe  = _num(info.get("forwardPE"))
+    pb          = _num(info.get("priceToBook"))
+    peg         = _num(info.get("pegRatio"))
+    ps          = _num(info.get("priceToSalesTrailing12Months"))
+
+    roe = _pct(info.get("returnOnEquity"))
+    roa = _pct(info.get("returnOnAssets"))
+    dy  = _pct(info.get("dividendYield"))
+    beta= _num(info.get("beta"))
+
+    gross_m     = _pct(info.get("grossMargins"))
+    op_m        = _pct(info.get("operatingMargins"))    # "Margem Operacional (%)"
+    ebitda_m    = _pct(info.get("ebitdaMargins"))
+    net_m       = _pct(info.get("profitMargins"))
+
     rows = [{
         # Identidade
         "Empresa": info.get("longName"),
-        "Setor": info.get("sector"),
+        "Setor":   info.get("sector"),
 
         # Valor da Empresa
-        "Market Cap": _num(info.get("marketCap")),
-        "Enterprise Value": ev,
+        "Market Cap":        _num(info.get("marketCap")),
+        "Enterprise Value":  ev,
 
         # Análise de Mercado
-        "P/L (Trailing)": _num(info.get("trailingPE")),
-        "P/L (Forward)":  _num(info.get("forwardPE")),
-        "P/VP":            _num(info.get("priceToBook")),
-        "PEG":             _num(info.get("pegRatio")),
-        "P/Sales":         _num(info.get("priceToSalesTrailing12Months")),
+        "P/L (Trailing)": trailing_pe,
+        "P/L (Forward)":  forward_pe,
+        "P/VP":           pb,
+        "PEG":            peg,
+        "P/Sales":        ps,
 
         # EV múltiplos
-        "EV/EBITDA":       _num(info.get("enterpriseToEbitda")),
-        "EV/Revenue":      _num(info.get("enterpriseToRevenue")),
-        "EV/EBIT (calc)":  (ev/ebit) if (not np.isnan(ev) and not np.isnan(ebit) and ebit != 0) else np.nan,
+        "EV/EBITDA":   _num(info.get("enterpriseToEbitda")),
+        "EV/Revenue":  _num(info.get("enterpriseToRevenue")),
+        "EV/EBIT (calc)": (ev/ebit) if (not np.isnan(ev) and not np.isnan(ebit) and ebit != 0) else np.nan,
 
         # Rentabilidade e Risco
-        "ROE (%)":         _pct(info.get("returnOnEquity")),
-        "ROA (%)":         _pct(info.get("returnOnAssets")),
-        "Dividend Yield (%)": _pct(info.get("dividendYield")),
-        "Beta":            _num(info.get("beta")),
+        "ROE (%)": roe,
+        "ROA (%)": roa,
+        "Dividend Yield (%)": dy,
+        "Beta": beta,
 
         # Eficiência / Margens
-        "Margem Bruta (%)":   _pct(info.get("grossMargins")),
-        "Margem EBIT (%)":    _pct(info.get("operatingMargins")),
-        "Margem EBITDA (%)":  _pct(info.get("ebitdaMargins")),
-        "Margem Líquida (%)": _pct(info.get("profitMargins")),
+        "Margem Bruta (%)":    gross_m,
+        "Margem EBIT (%)":     op_m,        # mantemos como EBIT no seu layout…
+        "Margem EBITDA (%)":   ebitda_m,
+        "Margem Líquida (%)":  net_m,
+        # …mas também expomos o nome que a Etapa 3 já usa:
+        "Margem Operacional (%)": op_m,
 
         # Endividamento
         "Net Debt/Equity": (net_debt/equity) if (not np.isnan(net_debt) and not np.isnan(equity) and equity != 0) else np.nan,
         "Net Debt/Assets": (net_debt/total_assets) if (not np.isnan(net_debt) and not np.isnan(total_assets) and total_assets != 0) else np.nan,
+        "Debt/Equity":    _num(info.get("debtToEquity")),  # alias p/ Etapa 3
 
-        # Liquidez / Eficiência de giro
+        # Liquidez / Giro
         "Liquidez Corrente": _num(info.get("currentRatio")),
         "Liquidez Seca":     _num(info.get("quickRatio")),
         "Giro do Ativo":     _num(info.get("assetTurnover")),
         "Giro de Estoque":   _num(info.get("inventoryTurnover")),
     }]
-    return pd.DataFrame(rows)
 
+    df = pd.DataFrame(rows)
+
+    # 🔁 Aliases para compatibilidade com a Etapa 3
+    df["P/L"] = df["P/L (Trailing)"]      # Etapa 3 espera "P/L"
+    # "P/VP" já existe com esse nome
+    return df
 
 # ------------------------------
 # Configuração básica da página
@@ -675,7 +694,9 @@ def etapa2_coleta_dados():
         st.info("Selecione uma empresa na Etapa 1 para continuar.")
         return
 
-    # Parâmetros
+    # ================================
+    # Parâmetros e coleta de dados
+    # ================================
     cols = st.columns([1,1,1.2])
     with cols[0]:
         period_prices = st.selectbox("Período de preços", ["1y","2y","5y"], index=1)
@@ -684,7 +705,6 @@ def etapa2_coleta_dados():
     with cols[2]:
         st.caption("Indicadores podem vir incompletos do Yahoo. Campos ausentes aparecem como NaN.")
 
-    # Coleta
     with st.spinner(f"Baixando dados de {ticker}…"):
         info, px, ibov_px = fetch_yf_info_and_prices(ticker, period_prices=period_prices)
 
@@ -692,99 +712,104 @@ def etapa2_coleta_dados():
         st.error("Não foi possível obter preços do ativo selecionado.")
         return
 
-    # Overview (múltiplos, margens etc.)
+    # ================================
+    # Overview (múltiplos e margens)
+    # ================================
     df_info = _build_overview_from_info(info)
     nome = df_info.at[0, "Empresa"] if not df_info.empty else ticker
     st.session_state["empresa_nome_completo"] = nome
-    # ===== Painel 7 colunas com grupos =====
-def fmt_money_brl_bi(v):
-    return "—" if (v is None or np.isnan(v)) else f"R$ {v/1e9:,.1f} bi"
 
-def fmt_num(v, d=2):
-    return "—" if (v is None or np.isnan(v)) else f"{v:.{d}f}"
+    # ================================
+    # Painel 7 colunas com grupos
+    # ================================
+    def fmt_money_brl_bi(v):
+        return "—" if (v is None or np.isnan(v)) else f"R$ {v/1e9:,.1f} bi"
 
-def fmt_pct(v, d=1):
-    return "—" if (v is None or np.isnan(v)) else f"{v:.{d}f}%"
+    def fmt_num(v, d=2):
+        return "—" if (v is None or np.isnan(v)) else f"{v:.{d}f}"
 
-r = df_info.iloc[0]
+    def fmt_pct(v, d=1):
+        return "—" if (v is None or np.isnan(v)) else f"{v:.{d}f}%"
 
-c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
+    r = df_info.iloc[0] if not df_info.empty else pd.Series(dtype=float)
 
-with c1:
-    st.markdown("### Valor da Empresa")
-    st.markdown(
-        f"- **Valor de Mercado**: {fmt_money_brl_bi(r.get('Market Cap'))}\n"
-        f"- **Enterprise Value**: {fmt_money_brl_bi(r.get('Enterprise Value'))}"
-    )
+    c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
 
-with c2:
-    st.markdown("### Análise de Mercado")
-    st.markdown(
-        f"- **P/L (Trailing)**: {fmt_num(r.get('P/L (Trailing)'))}\n"
-        f"- **P/L (Forward)**: {fmt_num(r.get('P/L (Forward)'))}\n"
-        f"- **P/VP**: {fmt_num(r.get('P/VP'))}\n"
-        f"- **PEG**: {fmt_num(r.get('PEG'))}"
-    )
+    with c1:
+        st.markdown("### Valor da Empresa")
+        st.markdown(
+            f"- **Valor de Mercado**: {fmt_money_brl_bi(r.get('Market Cap'))}\n"
+            f"- **Enterprise Value**: {fmt_money_brl_bi(r.get('Enterprise Value'))}"
+        )
 
-with c3:
-    st.markdown("### Análise de Mercado (cont.)")
-    st.markdown(
-        f"- **EV/EBITDA**: {fmt_num(r.get('EV/EBITDA'))}\n"
-        f"- **EV/EBIT**: {fmt_num(r.get('EV/EBIT (calc)'))}\n"
-        f"- **EV/Revenue**: {fmt_num(r.get('EV/Revenue'))}\n"
-        f"- **P/Sales**: {fmt_num(r.get('P/Sales'))}"
-    )
+    with c2:
+        st.markdown("### Análise de Mercado")
+        st.markdown(
+            f"- **P/L (Trailing)**: {fmt_num(r.get('P/L (Trailing)'))}\n"
+            f"- **P/L (Forward)**: {fmt_num(r.get('P/L (Forward)'))}\n"
+            f"- **P/VP**: {fmt_num(r.get('P/VP'))}\n"
+            f"- **PEG**: {fmt_num(r.get('PEG'))}"
+        )
 
-with c4:
-    st.markdown("### Rentabilidade e Risco")
-    st.markdown(
-        f"- **ROE**: {fmt_pct(r.get('ROE (%)'))}\n"
-        f"- **ROA**: {fmt_pct(r.get('ROA (%)'))}\n"
-        f"- **Dividend Yield**: {fmt_pct(r.get('Dividend Yield (%)'))}\n"
-        f"- **Beta**: {fmt_num(r.get('Beta'))}"
-    )
+    with c3:
+        st.markdown("### Análise de Mercado (cont.)")
+        st.markdown(
+            f"- **EV/EBITDA**: {fmt_num(r.get('EV/EBITDA'))}\n"
+            f"- **EV/EBIT**: {fmt_num(r.get('EV/EBIT (calc)'))}\n"
+            f"- **EV/Revenue**: {fmt_num(r.get('EV/Revenue'))}\n"
+            f"- **P/Sales**: {fmt_num(r.get('P/Sales'))}"
+        )
 
-with c5:
-    st.markdown("### Eficiência")
-    st.markdown(
-        f"- **Margem Bruta**: {fmt_pct(r.get('Margem Bruta (%)'))}\n"
-        f"- **Margem EBIT**: {fmt_pct(r.get('Margem EBIT (%)'))}\n"
-        f"- **Margem EBITDA**: {fmt_pct(r.get('Margem EBITDA (%)'))}\n"
-        f"- **Margem Líquida**: {fmt_pct(r.get('Margem Líquida (%)'))}"
-    )
+    with c4:
+        st.markdown("### Rentabilidade e Risco")
+        st.markdown(
+            f"- **ROE**: {fmt_pct(r.get('ROE (%)'))}\n"
+            f"- **ROA**: {fmt_pct(r.get('ROA (%)'))}\n"
+            f"- **Dividend Yield**: {fmt_pct(r.get('Dividend Yield (%)'))}\n"
+            f"- **Beta**: {fmt_num(r.get('Beta'))}"
+        )
 
-with c6:
-    st.markdown("### Endividamento")
-    st.markdown(
-        f"- **Dívida Líquida/PL**: {fmt_num(r.get('Net Debt/Equity'))}\n"
-        f"- **Dívida Líquida/Ativo**: {fmt_num(r.get('Net Debt/Assets'))}"
-    )
+    with c5:
+        st.markdown("### Eficiência")
+        st.markdown(
+            f"- **Margem Bruta**: {fmt_pct(r.get('Margem Bruta (%)'))}\n"
+            f"- **Margem EBIT**: {fmt_pct(r.get('Margem EBIT (%)'))}\n"
+            f"- **Margem EBITDA**: {fmt_pct(r.get('Margem EBITDA (%)'))}\n"
+            f"- **Margem Líquida**: {fmt_pct(r.get('Margem Líquida (%)'))}"
+        )
 
-with c7:
-    st.markdown("### Índices de Liquidez")
-    st.markdown(
-        f"- **Liquidez Corrente**: {fmt_num(r.get('Liquidez Corrente'))}\n"
-        f"- **Liquidez Seca**: {fmt_num(r.get('Liquidez Seca'))}\n"
-        f"- **Giro do Ativo**: {fmt_num(r.get('Giro do Ativo'))}\n"
-        f"- **Giro Estoque**: {fmt_num(r.get('Giro de Estoque'))}"
-    )
-    setor = df_info.at[0, "Setor"] if not df_info.empty else None
+    with c6:
+        st.markdown("### Endividamento")
+        st.markdown(
+            f"- **Dívida Líquida/PL**: {fmt_num(r.get('Net Debt/Equity'))}\n"
+            f"- **Dívida Líquida/Ativo**: {fmt_num(r.get('Net Debt/Assets'))}"
+        )
 
-    # Header com destaques
+    with c7:
+        st.markdown("### Índices de Liquidez")
+        st.markdown(
+            f"- **Liquidez Corrente**: {fmt_num(r.get('Liquidez Corrente'))}\n"
+            f"- **Liquidez Seca**: {fmt_num(r.get('Liquidez Seca'))}\n"
+            f"- **Giro do Ativo**: {fmt_num(r.get('Giro do Ativo'))}\n"
+            f"- **Giro Estoque**: {fmt_num(r.get('Giro de Estoque'))}"
+        )
+
+    # ================================
+    # Métricas rápidas e momentum
+    # ================================
     m1, m2 = st.columns(2)
-    with m1: st.metric("P/L",  f'{df_info.at[0,"P/L"]:.2f}'  if not np.isnan(df_info.at[0,"P/L"]) else "—")
-    with m2: st.metric("ROE (%)", f'{df_info.at[0,"ROE (%)"]:.1f}' if not np.isnan(df_info.at[0,"ROE (%)"]) else "—")
+    with m1: st.metric("P/L (Trailing)", fmt_num(r.get("P/L (Trailing)")))
+    with m2: st.metric("ROE (%)", fmt_pct(r.get("ROE (%)")))
 
-    # Momentum
-    ret_1m = _momentum_from_series(px, TRADING_DAYS["1M"])
-    ret_3m = _momentum_from_series(px, TRADING_DAYS["3M"])
-    ret_6m = _momentum_from_series(px, TRADING_DAYS["6M"])
+    ret_1m  = _momentum_from_series(px, TRADING_DAYS["1M"])
+    ret_3m  = _momentum_from_series(px, TRADING_DAYS["3M"])
+    ret_6m  = _momentum_from_series(px, TRADING_DAYS["6M"])
     ret_12m = _momentum_from_series(px, TRADING_DAYS["12M"])
 
     m1, m2, m3, m4 = st.columns(4)
-    with m1: st.metric("Retorno 1M",  f"{ret_1m*100:,.1f}%" if not np.isnan(ret_1m) else "—")
-    with m2: st.metric("Retorno 3M",  f"{ret_3m*100:,.1f}%" if not np.isnan(ret_3m) else "—")
-    with m3: st.metric("Retorno 6M",  f"{ret_6m*100:,.1f}%" if not np.isnan(ret_6m) else "—")
+    with m1: st.metric("Retorno 1M", f"{ret_1m*100:,.1f}%" if not np.isnan(ret_1m) else "—")
+    with m2: st.metric("Retorno 3M", f"{ret_3m*100:,.1f}%" if not np.isnan(ret_3m) else "—")
+    with m3: st.metric("Retorno 6M", f"{ret_6m*100:,.1f}%" if not np.isnan(ret_6m) else "—")
     with m4: st.metric("Retorno 12M", f"{ret_12m*100:,.1f}%" if not np.isnan(ret_12m) else "—")
 
     st.markdown("---")
