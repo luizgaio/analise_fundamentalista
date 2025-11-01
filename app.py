@@ -148,10 +148,11 @@ def _build_overview_from_info(info: dict) -> pd.DataFrame:
     }]
 
     df = pd.DataFrame(rows)
+    df["P/L"] = df["P/L (Trailing)"]             # Etapa 3 espera "P/L"
+    df["Current Ratio"] = df["Liquidez Corrente"]
+    df["Quick Ratio"]   = df["Liquidez Seca"]
+    df["Market Cap (R$ bi)"] = df["Market Cap"] / 1e9
 
-    # 🔁 Aliases para compatibilidade com a Etapa 3
-    df["P/L"] = df["P/L (Trailing)"]      # Etapa 3 espera "P/L"
-    # "P/VP" já existe com esse nome
     return df
 
 # ------------------------------
