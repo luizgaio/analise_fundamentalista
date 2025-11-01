@@ -21,6 +21,14 @@ import pandas as pd
 import streamlit as st
 from typing import Tuple, Dict
 
+def apply_dark_fig(fig):
+    fig.update_layout(
+        paper_bgcolor="#0f172a", plot_bgcolor="#0f172a",
+        font_color="#e2e8f0"
+    )
+    return fig
+
+
 # ============================================================
 # ETAPA 2 — Coleta e preparação de dados (yfinance)
 # ============================================================
@@ -96,59 +104,98 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ====== THEME / STYLES (dark completo) ======
+# ====== THEME / STYLES (dark consistente em toda a página) ======
 def inject_base_styles():
     st.markdown("""
     <style>
-      /* --------- App container (centro) --------- */
-      /* cobre variações de DOM entre versões do Streamlit */
-      .stApp, html, body {
-        background: #0f172a !important;           /* slate-900 */
-        color: #e2e8f0 !important;                /* slate-200 */
+      /* ---------- Fundos globais ---------- */
+      :root {
+        --bg: #0f172a;        /* slate-900 */
+        --bg-soft: #0b1220;   /* sidebar/caixas */
+        --text: #e2e8f0;      /* slate-200 */
+        --text-dim: #cbd5e1;  /* slate-300 */
+        --border: rgba(255,255,255,0.08);
+        --card: rgba(255,255,255,0.06);
+        --accent: #60a5fa;    /* azul */
       }
-      div[data-testid="stAppViewContainer"] {
-        background: #0f172a !important;           /* fundo principal */
+      html, body, .stApp, div[data-testid="stAppViewContainer"] {
+        background: var(--bg) !important; color: var(--text) !important;
       }
-      /* container de conteúdo (onde ficam os elementos) */
-      .block-container {
-        padding-top: 1.25rem;
-        background: transparent !important;
-      }
+      .block-container { background: transparent !important; }
 
-      /* --------- Sidebar --------- */
+      /* ---------- Sidebar ---------- */
       section[data-testid="stSidebar"] {
-        background: #0b1220 !important;
-        color: #e2e8f0 !important;
-        border-right: 1px solid rgba(255,255,255,0.06);
+        background: var(--bg-soft) !important; color: var(--text) !important;
+        border-right: 1px solid var(--border);
       }
 
-      /* --------- Títulos / textos --------- */
-      h1, h2, h3, h4, h5, h6 { color:#e5e7eb !important; letter-spacing:.3px; }
-      p, label, span, div { color: inherit; }
+      /* ---------- Títulos e texto ---------- */
+      h1, h2, h3, h4, h5, h6 { color: var(--text) !important; }
+      p, label, span, div, small, code, kbd, pre { color: var(--text-dim); }
+      a { color: var(--accent); }
 
-      /* --------- Cards / botões utilitários do seu layout --------- */
-      .card {
-        background: rgba(255,255,255,0.06) !important;
-        border: 1px solid rgba(255,255,255,0.08) !important;
-        border-radius: 16px; padding: 16px;
+      /* ---------- Cards / caixas padrão ---------- */
+      .stAlert, .stMarkdown div, .st-emotion-cache-ocqkz7, .st-emotion-cache-1y4p8pa,
+      .st-emotion-cache-16idsys, .st-emotion-cache-7ym5gk, .st-emotion-cache-1wmy9hl {
+        background: var(--card) !important; color: var(--text) !important;
+        border: 1px solid var(--border) !important; border-radius: 14px;
       }
-      .card:hover { box-shadow: 0 12px 24px rgba(0,0,0,.25); transform: translateY(-2px); }
-      .btn-ghost { border-color: rgba(255,255,255,0.25) !important; color: #fff !important; }
 
-      /* --------- DataFrame --------- */
+      /* ---------- DataFrame/Tabela ---------- */
       .stDataFrame, .stTable {
-        background: #0b1020 !important;
-        border-radius: 10px;
+        background: var(--bg-soft) !important; color: var(--text) !important;
+        border: 1px solid var(--border) !important; border-radius: 10px;
+      }
+      .stDataFrame thead, .stTable thead { background: var(--bg) !important; color: var(--text) !important; }
+      .stDataFrame tbody, .stTable tbody { color: var(--text) !important; }
+      .stDataFrame [data-testid="stHorizontalBlock"] { background: transparent !important; }
+
+      /* ---------- Expanders / tabs ---------- */
+      details, .st-expander, .stTabs [data-baseweb="tab-list"] {
+        background: var(--bg-soft) !important; color: var(--text) !important;
+        border: 1px solid var(--border) !important; border-radius: 12px;
+      }
+      .stTabs [data-baseweb="tab"] { color: var(--text-dim) !important; }
+      .stTabs [aria-selected="true"] { color: var(--text) !important; border-color: var(--accent) !important; }
+
+      /* ---------- Inputs (select/multiselect/number/slider) ---------- */
+      /* BaseWeb (usado pelo Streamlit) */
+      div[data-baseweb="select"], div[role="listbox"], input, textarea {
+        color: var(--text) !important; background: var(--bg-soft) !important;
+      }
+      div[role="listbox"] div { color: var(--text) !important; }
+      .stNumberInput, .stTextInput, .stSelectbox, .stMultiSelect, .stDateInput {
+        color: var(--text) !important;
+      }
+      .st-bb, .st-c2, .st-bz { border-color: var(--border) !important; } /* bordas de inputs */
+
+      /* Radio/checkbox labels */
+      label[data-baseweb="radio"], label[data-baseweb="checkbox"] { color: var(--text) !important; }
+
+      /* ---------- Metrics ---------- */
+      div[data-testid="stMetric"] { background: var(--card) !important; border: 1px solid var(--border); border-radius: 12px; padding: 8px; }
+      div[data-testid="stMetricValue"] { color: var(--text) !important; }
+      div[data-testid="stMetricDelta"] { color: var(--text-dim) !important; }
+
+      /* ---------- Botões ---------- */
+      button[kind="secondary"], .stButton>button {
+        color: var(--text) !important; background: var(--bg-soft) !important; border: 1px solid var(--border) !important;
       }
 
-      /* --------- Inputs (select, slider etc) --------- */
-      .stSelectbox, .stTextInput, .stNumberInput, .stMultiSelect, .stDateInput {
-        color: #e2e8f0 !important;
-      }
+      /* ---------- Markdown tabelas / code ---------- */
+      .markdown-text-container table { background: var(--bg-soft) !important; }
+      pre, code { background: #0b1020 !important; color: var(--text) !important; }
+
+      /* ---------- Tooltips / help ---------- */
+      .stTooltipContent { background: var(--bg-soft) !important; color: var(--text) !important; }
+
+      /* ---------- Remove qualquer faixa branca sobrando ---------- */
+      .stApp [class^="viewerBadge"], .stApp [class*="viewerBadge"] { background: transparent !important; }
     </style>
     """, unsafe_allow_html=True)
 
 inject_base_styles()
+
 
 
 # ------------------------------
