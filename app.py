@@ -781,10 +781,8 @@ def etapa3_analise_avancada():
         st.warning(msg + " — Mostrando apenas a empresa, sem comparativos de setor.")
         peers_list = []  # segue sem pares
     else:
-
-    # Série da ação escolhida (ex.: CMIG3.SA -> "3")
-    mserie = re.search(r"(\d{1,2})\.SA$", ticker)
-    serie_sel = mserie.group(1) if mserie else "3"
+        mserie = re.search(r"(\d{1,2})\.SA$", ticker)
+        serie_sel = mserie.group(1) if mserie else "3"
 
     # Monta TickerFinal para o Excel (usa TICKER se existir; senão CÓDIGO + a MESMA série da escolhida)
     def _build_tickerfinal(row):
