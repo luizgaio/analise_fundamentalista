@@ -22,7 +22,6 @@ def apply_dark_fig(fig):
     )
 import re
 import pandas as pd
-import streamlit as st
 from typing import Tuple, Dict
 
 # ============================================================
@@ -416,11 +415,11 @@ MODES = {"home": "Início", "single": "Análise Individual", "screener": "Screen
 
 def set_mode(mode: str):
     st.session_state["mode"] = mode
-    st.experimental_set_query_params(**{"mode": mode})
+    st.query_params["mode"] = mode
 
 # Query param → carrega modo ao abrir o app
-params = st.experimental_get_query_params()
-mode_param = params.get("mode", ["home"]) [0]
+params = st.query_params
+mode_param = params.get("mode", "home")
 if "mode" not in st.session_state:
     st.session_state["mode"] = mode_param if mode_param in MODES else "home"
 
@@ -1040,14 +1039,14 @@ def _safe(v):
 
 def _score_value(df: pd.DataFrame) -> pd.Series:
     cols = ["P/L", "P/VP", "EV/EBITDA", "P/Sales"]
-    tmp = df[cols].applymap(_safe)
+    tmp = df[cols].map(_safe)
     # normaliza coluna a coluna e inverte (menor = melhor)
     inv = 1 - _minmax(tmp)
     return inv.mean(axis=1)
 
 def _score_profit(df: pd.DataFrame) -> pd.Series:
     cols = ["ROE (%)", "ROA (%)", "Margem Líquida (%)", "Margem Operacional (%)", "Margem EBITDA (%)"]
-    tmp = df[cols].applymap(_safe)
+    tmp = df[cols].map(_safe)
     return _minmax(tmp).mean(axis=1)
 
 def _score_strength(df: pd.DataFrame) -> pd.Series:
@@ -1056,10 +1055,10 @@ def _score_strength(df: pd.DataFrame) -> pd.Series:
 
     parts = []
     if all(c in df.columns for c in cols_low):
-        tmp_low = df[cols_low].applymap(_safe)
+        tmp_low = df[cols_low].map(_safe)
         parts.append(1 - _minmax(tmp_low))  # inverte para "menor=melhor"
     if all(c in df.columns for c in cols_high):
-        tmp_high = df[cols_high].applymap(_safe)
+        tmp_high = df[cols_high].map(_safe)
         parts.append(_minmax(tmp_high))
 
     if not parts:
@@ -1201,7 +1200,7 @@ def etapa3_analise_avancada():
     df_scores["Score Strength"]= _score_strength(df_scores)
     # Momentum composto (média dos disponíveis)
     mom_cols = ["Momentum 1M (%)","Momentum 3M (%)","Momentum 6M (%)","Momentum 12M (%)"]
-    df_scores["Score Momentum"] = _minmax(df_scores[mom_cols].applymap(_safe)).mean(axis=1)
+    df_scores["Score Momentum"] = _minmax(df_scores[mom_cols].map(_safe)).mean(axis=1)
 
     # Score geral (pesos ajustáveis – por enquanto fixos; depois podemos expor sliders)
     W_VALUE, W_PROFIT, W_STRENGTH, W_MOM = 0.30, 0.30, 0.20, 0.20
@@ -1389,101 +1388,18 @@ def etapa3_analise_avancada():
             fig_bar_liq.update_layout(barmode="group", title="Liquidez: empresa vs. setor (mediana)")
             st.plotly_chart(fig_bar_liq, use_container_width=True)
         else:
-            st.info("Sem dados suficientes para liquidez.")    
+            st.info("Sem dados suficientes para liquidez.")
 
-    @st.cache_data(show_spinner=True)
-    
-    def fetch_prices_multi(tickers: list, period: str = "2y"):
-    
-        """Baixa preços ajustados de vários tickers e retorna um DF de Close."""
-        if not tickers:
-            return pd.DataFrame()
-        try:
-            df = yf.download(
-                tickers=tickers,
-                period=period, interval="1d",
-                auto_adjust=True, group_by="ticker",
-                threads=False, progress=False,
-            )
-            # extrai a coluna Close em qualquer formato que vier
-            if isinstance(df.columns, pd.MultiIndex):
-                close = df.xs("Close", axis=1, level=1, drop_level=False).copy()
-                # rearranja para colunas simples com os tickers
-                close = close.droplevel(1, axis=1)
-            else:
-                # único ticker
-                close = pd.DataFrame({tickers[0]: df["Close"]})
-            close = close.dropna(how="all")
-            return close
-        except Exception:
-            return pd.DataFrame()
+    # ====== Gráfico base-100: empresa + pares ======
+    _etapa3_price_chart_section(ticker, peers_list)
 
-    def _normalize_base100(col: pd.Series) -> pd.Series:
-        """Normaliza cada série individualmente para 100 no primeiro ponto válido."""
-        if col is None or col.dropna().empty:
-            return col
-        base = col.dropna().iloc[0]
-        return (col / base) * 100.0
-
-        # ====== Evolução de Preços (base 100) — empresa + pares ======
-    st.markdown("#### 📈 Preço normalizado (base 100) — empresa e pares")
-
-    # recupera a lista de pares que você montou acima na mesma função
-    # (se preferir, salve peers_list no session_state quando montar)
-    peers_for_chart = []
-    try:
-        peers_for_chart = peers_list.copy()
-    except NameError:
-        peers_for_chart = []
-
-    # monta universo: empresa + pares (sem duplicados)
-    univ = [ticker] + [t for t in peers_for_chart if t != ticker]
-    univ = list(dict.fromkeys([t for t in univ if isinstance(t, str) and t]))
-
-    cols = st.columns([1,1,1])
-    with cols[0]:
-        per = st.selectbox("Período do gráfico", ["6mo", "1y", "2y", "5y"], index=2, key="prices_base100_period")
-    with cols[1]:
-        show_legend = st.toggle("Mostrar legenda completa", value=False)
-    with cols[2]:
-        st.caption("Séries ajustadas e normalizadas para 100 no 1º ponto válido.")
-
-    # coleta e plota
-    prices = fetch_prices_multi(univ, period=per)
-    if prices.empty:
-        st.info("Sem dados de preço para o universo selecionado.")
-    else:
-        # normaliza cada coluna individualmente
-        base100 = prices.apply(_normalize_base100)
-        base100 = base100.dropna(how="all")
-
-        fig_norm = go.Figure()
-        for col in base100.columns:
-            # destaque para o ticker selecionado
-            is_sel = (col == ticker)
-            fig_norm.add_trace(go.Scatter(
-                x=base100.index, y=base100[col],
-                mode="lines", name=col,
-                line=dict(width=3 if is_sel else 1.5),
-                opacity=1.0 if is_sel else 0.8
-            ))
-        fig_norm.update_layout(
-            height=420,
-            title="Evolução do preço (100 = início de cada série)",
-            xaxis_title="Data", yaxis_title="Índice (base 100)",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0.0) if show_legend else dict()
-        )
-        st.plotly_chart(fig_norm, use_container_width=True)
-
-
-    
+    # ====== Tabela + Export + Session State ======
     st.markdown("#### 📋 Tabela (empresa + pares)")
     st.dataframe(
         df_scores.sort_values("Score Total", ascending=False).reset_index(drop=True),
         use_container_width=True, height=420
     )
-    
-    # Export
+
     st.download_button(
         "⬇️ Baixar CSV (empresa + pares + scores)",
         data=df_scores.to_csv(index=False).encode("utf-8"),
@@ -1491,8 +1407,80 @@ def etapa3_analise_avancada():
         mime="text/csv"
     )
 
-    # Guarda em sessão para eventuais próximas etapas
     st.session_state["etapa3_df_scores"] = df_scores
+
+
+# ── fetch_prices_multi e _normalize_base100 ── (module level)
+@st.cache_data(show_spinner=True)
+def fetch_prices_multi(tickers: list, period: str = "2y"):
+    """Baixa preços ajustados de vários tickers e retorna um DF de Close."""
+    if not tickers:
+        return pd.DataFrame()
+    try:
+        df = yf.download(
+            tickers=tickers,
+            period=period, interval="1d",
+            auto_adjust=True, group_by="ticker",
+            threads=False, progress=False,
+        )
+        # extrai a coluna Close em qualquer formato que vier
+        if isinstance(df.columns, pd.MultiIndex):
+            close = df.xs("Close", axis=1, level=1, drop_level=False).copy()
+            close = close.droplevel(1, axis=1)
+        else:
+            close = pd.DataFrame({tickers[0]: df["Close"]})
+        close = close.dropna(how="all")
+        return close
+    except Exception:
+        return pd.DataFrame()
+
+
+def _normalize_base100(col: pd.Series) -> pd.Series:
+    """Normaliza cada série individualmente para 100 no primeiro ponto válido."""
+    if col is None or col.dropna().empty:
+        return col
+    base = col.dropna().iloc[0]
+    return (col / base) * 100.0
+
+
+def _etapa3_price_chart_section(ticker, peers_list):
+    # ====== Evolução de Preços (base 100) — empresa + pares ======
+    st.markdown("#### 📈 Preço normalizado (base 100) — empresa e pares")
+    peers_for_chart = list(peers_list) if peers_list else []
+    univ = [ticker] + [t for t in peers_for_chart if t != ticker]
+    univ = list(dict.fromkeys([t for t in univ if isinstance(t, str) and t]))
+
+    cols = st.columns([1, 1, 1])
+    with cols[0]:
+        per = st.selectbox("Período do gráfico", ["6mo", "1y", "2y", "5y"], index=2, key="prices_base100_period")
+    with cols[1]:
+        show_legend = st.toggle("Mostrar legenda completa", value=False)
+    with cols[2]:
+        st.caption("Séries ajustadas e normalizadas para 100 no 1º ponto válido.")
+
+    prices = fetch_prices_multi(tuple(univ), period=per)
+    if prices.empty:
+        st.info("Sem dados de preço para o universo selecionado.")
+        return
+    base100 = prices.apply(_normalize_base100).dropna(how="all")
+    fig_norm = go.Figure()
+    for col in base100.columns:
+        is_sel = (col == ticker)
+        fig_norm.add_trace(go.Scatter(
+            x=base100.index, y=base100[col],
+            mode="lines", name=col,
+            line=dict(width=3 if is_sel else 1.5),
+            opacity=1.0 if is_sel else 0.8,
+        ))
+    fig_norm.update_layout(
+        height=420,
+        title="Evolução do preço (100 = início de cada série)",
+        xaxis_title="Data", yaxis_title="Índice (base 100)",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0.0)
+        if show_legend else dict(),
+    )
+    st.plotly_chart(fig_norm, use_container_width=True)
+
 
 # ============================================================
 # ETAPA 4 — Valuation (Target Price por múltiplos e Ben Graham)
